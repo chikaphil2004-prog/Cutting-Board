@@ -1,0 +1,788 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="color-scheme" content="light" />
+<title>Cutting Board Studio — Cloud Sync</title>
+<style>
+  :root { --ink:#202b38; --muted:#697787; --muted2:#8b97a5; --border:#dde4e9; --line:#edf1f3; --surface:#fff; --canvas:#f5f7f8; --aside:#172330; --aside2:#253545; --teal:#157f76; --teal-soft:#e5f5f1; --indigo:#586bb1; --danger:#ba4949; --danger-soft:#fff0ef; --amber:#966d22; --radius:13px; --shadow:0 6px 22px rgba(24,39,52,.055); }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--canvas); color:var(--ink); font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Hiragino Kaku Gothic ProN","Yu Gothic",Meiryo,sans-serif; font-size:14px; line-height:1.55; }
+  button,input,textarea,select { font:inherit; }
+  button { cursor:pointer; }
+  a { color:inherit; }
+  .app { min-height:100vh; display:grid; grid-template-columns:254px minmax(0,1fr); }
+  .sidebar { background:var(--aside); color:#e7edf1; min-height:100vh; padding:24px 13px 20px; display:flex; flex-direction:column; gap:22px; }
+  .brand { display:flex; align-items:center; gap:12px; padding:3px 11px 4px; }
+  .mark { width:37px; height:37px; border-radius:11px; background:#e4f4f0; color:#17665e; display:flex; justify-content:center; align-items:center; font-size:22px; font-weight:750; font-family:Georgia,serif; }
+  .brand-title { font-weight:750; line-height:1.15; font-size:15px; letter-spacing:-.25px; }
+  .brand-sub { color:#91a3b1; font-size:10px; letter-spacing:1.6px; margin-top:4px; text-transform:uppercase; }
+  .nav-group { display:grid; gap:4px; }
+  .side-heading { padding:3px 13px; color:#90a3b3; font-weight:700; font-size:10px; letter-spacing:1.7px; text-transform:uppercase; }
+  .side-link,.paper-link { border:0; color:#c9d4dd; border-radius:9px; background:transparent; padding:10px 12px; width:100%; display:flex; align-items:center; text-align:left; gap:11px; transition:background .13s; }
+  .side-link:hover,.paper-link:hover { background:var(--aside2); }
+  .side-link.active,.paper-link.active { background:#2e4654; color:#fff; }
+  .side-icon { font-size:17px; width:19px; text-align:center; flex-shrink:0; }
+  .paper-link .paper-identity { flex:1; min-width:0; }
+  .paper-link .paper-name { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; display:block; font-weight:560; font-size:12.5px; }
+  .paper-link .paper-meta { font-size:10px; color:#92a7b6; display:block; }
+  .paper-link.active .paper-meta { color:#bdcdd8; }
+  .paper-link .pillcount { color:#9eb3bd; font-size:11px; }
+  .side-create { margin:5px 5px 0; border:1px dashed #607785; background:transparent; color:#cbdce2; border-radius:9px; padding:9px; width:calc(100% - 10px); text-align:center; }
+  .side-create:hover { background:var(--aside2); }
+  .sidebar-bottom { margin-top:auto; border-top:1px solid #304354; padding:17px 8px 0; display:grid; gap:10px; }
+  .sidebar-bottom button { background:transparent; color:#cbd6de; border:0; text-align:left; padding:4px; }
+  .sidebar-small { font-size:11px; line-height:1.5; color:#91a3b2; padding:0 4px; }
+  .workspace { min-width:0; }
+  .topbar { padding:15px 27px; background:rgba(255,255,255,.96); display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--border); gap:12px; }
+  .crumb { color:var(--muted); font-size:12px; min-width:0; white-space:nowrap; text-overflow:ellipsis; overflow:hidden; }
+  .crumb strong { color:var(--ink); font-weight:650; }
+  .top-actions { display:flex; gap:9px; align-items:center; }
+  .main { margin:0 auto; max-width:1540px; padding:27px 28px 60px; }
+  .heading { display:flex; align-items:flex-start; justify-content:space-between; gap:15px; flex-wrap:wrap; margin-bottom:20px; }
+  .eyebrow { text-transform:uppercase; letter-spacing:1.5px; font-size:10px; font-weight:750; color:var(--teal); margin:0 0 4px; }
+  h1 { font-size:clamp(23px,3vw,31px); letter-spacing:-1px; margin:0; font-weight:750; line-height:1.3; overflow-wrap:anywhere; }
+  h2 { margin:0; font-size:16px; letter-spacing:-.25px; }
+  h3 { margin:0; font-size:13px; }
+  .desc { color:var(--muted); margin:7px 0 0; font-size:12.5px; }
+  .btn { border:1px solid var(--border); border-radius:9px; background:white; color:var(--ink); font-weight:640; min-height:36px; padding:8px 12px; display:inline-flex; align-items:center; justify-content:center; gap:6px; transition:all .12s; white-space:nowrap; }
+  .btn:hover { background:#f3f6f7; border-color:#bac8d0; }
+  .btn:focus-visible,.icon-btn:focus-visible,.side-link:focus-visible,.paper-link:focus-visible { outline:3px solid #94cfbd; outline-offset:2px; }
+  .btn.primary { background:var(--teal); color:#fff; border-color:var(--teal); }
+  .btn.primary:hover { background:#106b63; }
+  .btn.danger { color:var(--danger); border-color:#f2c7c5; }
+  .btn.danger:hover { background:var(--danger-soft); }
+  .btn.small { padding:5px 10px; min-height:29px; font-size:11.5px; }
+  .btn.ghost { background:transparent; }
+  .btn:disabled,.icon-btn:disabled { opacity:.35; cursor:not-allowed; }
+  .icon-btn { width:30px; height:30px; border:1px solid transparent; border-radius:7px; background:transparent; color:var(--muted); display:inline-grid; place-items:center; font-size:16px; flex-shrink:0; }
+  .icon-btn:hover { background:#eef2f4; color:var(--ink); }
+  .icon-btn.tiny { width:26px; height:26px; font-size:13px; }
+  .stats { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:10px; margin:15px 0 20px; }
+  .stat { background:#fff; border:1px solid var(--border); padding:13px 16px; border-radius:var(--radius); }
+  .stat .n { font-size:24px; font-weight:780; letter-spacing:-.7px; line-height:1.2; }
+  .stat .label { font-size:11px; color:var(--muted); margin-top:4px; }
+  .board-layout { display:grid; grid-template-columns:minmax(0,1fr) 364px; gap:17px; align-items:start; }
+  .panel { border:1px solid var(--border); border-radius:var(--radius); background:#fff; box-shadow:var(--shadow); min-width:0; }
+  .panel-h { padding:17px 18px 12px; border-bottom:1px solid var(--line); }
+  .panel-b { padding:14px 16px; }
+  .toolbar { display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-top:13px; }
+  .segmented { display:inline-flex; border:1px solid var(--border); padding:3px; border-radius:9px; background:#f3f5f6; gap:1px; }
+  .segmented button { color:var(--muted); background:transparent; border:0; border-radius:6px; padding:7px 11px; font-weight:700; font-size:11.5px; }
+  .segmented button.on { background:#fff; box-shadow:0 1px 4px rgba(18,32,43,.11); color:var(--ink); }
+  .search { position:relative; flex:1 1 175px; }
+  .search input { padding-left:34px; }
+  .search:before { content:'⌕'; position:absolute; top:4px; left:10px; font-size:24px; line-height:29px; color:#93a1ad; pointer-events:none; }
+  input[type=text],input[type=search],textarea,select { background:#fff; color:var(--ink); border:1px solid #d6dfe5; border-radius:8px; outline:0; width:100%; padding:9px 10px; font-size:12.5px; min-width:0; }
+  input:focus,textarea:focus,select:focus { border-color:#55a99b; box-shadow:0 0 0 3px #55a99b22; }
+  textarea { resize:vertical; min-height:88px; line-height:1.65; }
+  .filters { display:flex; align-items:center; gap:8px; margin-top:10px; flex-wrap:wrap; }
+  .filters select { width:auto; max-width:175px; padding:7px 8px; }
+  .check { display:inline-flex; align-items:center; color:var(--muted); gap:5px; font-size:11px; user-select:none; }
+  .check input { accent-color:var(--teal); }
+  .subtle { color:var(--muted); font-size:11.5px; }
+  .list-note { font-size:11px; color:var(--muted); background:#f7f9fa; border-bottom:1px solid var(--line); padding:9px 18px; }
+  .cards { padding:10px; display:grid; gap:8px; }
+  .card-item { padding:13px 13px 12px 11px; border-radius:10px; border:1px solid #e4eaee; background:#fff; display:flex; gap:9px; align-items:start; cursor:pointer; transition:background .13s,border-color .13s; }
+  .card-item:hover { background:#f8fafb; border-color:#b7cbc9; }
+  .card-item.selected { background:#f1f9f6; border-color:#70b6a8; box-shadow:0 0 0 1px #70b6a827 inset; }
+  .card-item.drag-over { border:2px dashed var(--teal); background:#edf9f6; }
+  .grip { color:#a7b3bb; cursor:grab; user-select:none; padding:3px 3px 0; flex-shrink:0; }
+  .card-body { min-width:0; flex:1; }
+  .card-top { display:flex; flex-wrap:wrap; align-items:center; gap:6px; margin-bottom:5px; }
+  .code { font-size:10.5px; font-family:ui-monospace,SFMono-Regular,Consolas,monospace; color:var(--muted); font-weight:700; }
+  .tag { font-size:10px; font-weight:680; background:#e8edf6; color:#48597f; border-radius:5px; padding:2px 7px; max-width:150px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .tag.practical { background:var(--teal-soft); color:#236f66; }
+  .tag.cut { background:#f5efec; color:#93685b; }
+  .status-dot { width:6px; height:6px; border-radius:100%; background:#d29f42; display:inline-block; }
+  .status-dot.done { background:var(--teal); }
+  .status-dot.cut { background:#a9b2b9; }
+  .card-title { font-size:13px; font-weight:700; line-height:1.45; overflow-wrap:anywhere; }
+  .card-preview { margin-top:4px; font-size:11.7px; color:#667585; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; white-space:pre-line; overflow-wrap:anywhere; }
+  .deps-preview { display:flex; gap:5px; align-items:center; margin-top:8px; flex-wrap:wrap; color:#85939e; font-size:10px; }
+  .dep-mini { background:#f0f3f5; border-radius:4px; padding:2px 5px; color:#677787; }
+  .card-controls { display:flex; flex-direction:column; gap:1px; flex-shrink:0; }
+  .editor { position:sticky; top:15px; }
+  .editor-scroll { max-height:calc(100vh - 33px); overflow:auto; }
+  .editor-head { display:flex; justify-content:space-between; align-items:center; }
+  .field { margin-bottom:15px; }
+  .field label { display:block; font-size:11px; font-weight:740; color:#4e6271; margin-bottom:6px; }
+  .field-help { font-size:10.5px; color:var(--muted2); margin:5px 0 0; }
+  .field-row { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+  .stack { display:grid; gap:9px; }
+  .tinyline { border-top:1px solid var(--line); margin:17px 0; }
+  .dep-list { display:grid; gap:6px; margin:7px 0; }
+  .dep-chip { display:flex; align-items:center; gap:6px; background:#f4f7f8; border:1px solid #e5ecf0; border-radius:8px; padding:6px 8px; font-size:11px; min-width:0; }
+  .dep-chip span { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; flex:1; }
+  .dep-choice { display:flex; align-items:center; padding:8px 9px; gap:9px; border:1px solid #e7edef; border-radius:8px; background:white; text-align:left; width:100%; color:var(--ink); }
+  .dep-choice:hover { background:#edf8f5; }
+  .dep-choice .dep-ref { color:var(--muted); font-size:10px; white-space:nowrap; }
+  .muted-center { text-align:center; color:var(--muted); padding:30px 18px; font-size:12px; }
+  .empty { border:1px dashed #d6e1e3; padding:42px 20px; margin:12px; border-radius:10px; text-align:center; color:var(--muted); }
+  .empty .big { font-size:30px; margin-bottom:8px; }
+  .paper-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(255px,1fr)); gap:12px; margin:17px 0 23px; }
+  .paper-tile { border:1px solid var(--border); border-radius:12px; background:#fff; padding:20px; text-align:left; min-height:147px; cursor:pointer; }
+  .paper-tile:hover { border-color:#65a99b; background:#fbfffd; }
+  .paper-tile h3 { font-size:16px; margin:6px 0 4px; overflow-wrap:anywhere; }
+  .paper-tile p { color:var(--muted); font-size:11.5px; margin:0 0 13px; }
+  .overview-list { display:grid; gap:7px; padding:11px; }
+  .overview-item { display:flex; gap:9px; padding:11px 12px; border-radius:9px; align-items:start; text-align:left; width:100%; border:1px solid #e7edef; background:#fff; cursor:pointer; }
+  .overview-item:hover { background:#f5faf8; border-color:#a4cfc3; }
+  .overview-item .info { min-width:0; flex:1; }
+  .overview-item .info strong { display:block; font-size:12.5px; }
+  .overview-item .info small { display:block; font-size:10px; color:var(--muted); margin-top:3px; }
+  .modal-wrap { position:fixed; inset:0; z-index:99; background:#101e2aa9; display:grid; place-items:center; padding:14px; }
+  .modal { width:min(490px,100%); max-height:min(88vh,800px); overflow:auto; border-radius:16px; background:#fff; box-shadow:0 18px 60px #0a1e2777; padding:23px; }
+  .modal-head { display:flex; justify-content:space-between; align-items:start; margin-bottom:17px; gap:10px; }
+  .modal h2 { font-size:19px; }
+  .modal-footer { display:flex; justify-content:flex-end; align-items:center; flex-wrap:wrap; gap:8px; border-top:1px solid var(--line); padding-top:16px; margin-top:16px; }
+  .warning { background:#fff7e9; color:#785a29; border:1px solid #fae2b8; padding:11px; border-radius:9px; font-size:11px; }
+  .hint { background:#f0f7f6; color:#37665f; border-radius:9px; padding:11px; font-size:11.5px; }
+  .toast { position:fixed; right:24px; bottom:21px; z-index:110; border-radius:9px; background:#1e3840; color:#fff; box-shadow:0 10px 25px #0002; padding:12px 18px; font-size:12px; max-width:min(390px,85vw); pointer-events:none; animation:fadein .2s; }
+  @keyframes fadein { from {opacity:0;transform:translateY(8px)} to {opacity:1;transform:translateY(0)} }
+  .nowrap { white-space:nowrap; }
+  .editable-title { cursor:pointer; border-bottom:1px dashed transparent; transition:border-color .15s; }
+  .editable-title:hover { border-bottom-color:var(--teal); }
+  .edit-tip { color:var(--teal); font-size:11px; font-weight:500; opacity:.8; }
+  .metadata { display:flex;gap:7px;align-items:center;flex-wrap:wrap;margin-top:9px; }
+  .meta-pill { border:1px solid #dce8e4;background:#f6fbf9;border-radius:20px;padding:2px 9px;font-size:10px;color:#466b65; }
+  .editable-row { display:flex;gap:7px;align-items:center;border-bottom:1px solid var(--line);padding:7px 0; }
+  .editable-row input[type=text] { flex:1; }
+  input[type=color] { width:35px; height:34px; padding:3px; border:1px solid var(--border); border-radius:7px; background:white;cursor:pointer;flex-shrink:0; }
+  .custom-field { display:grid; grid-template-columns:minmax(100px,.8fr) minmax(130px,1.2fr) 27px;gap:6px;align-items:start;margin:5px 0; }
+  .custom-field input { min-width:0; }
+  .custom-title { font-size:11px;font-weight:750;margin-bottom:6px; }
+  .paper-entry { display:flex;align-items:center;gap:2px; }
+  .paper-entry .paper-link { min-width:0;flex:1; }
+  .paper-reorder { display:grid; gap:1px; }
+  .paper-reorder button { border:0;color:#8da2ad;background:transparent;font-size:11px;cursor:pointer;width:21px; }
+  .paper-reorder button:hover { color:#fff; }
+  .paper-reorder button:disabled { opacity:.22;cursor:default; }
+  .inline-notes {white-space:pre-wrap;overflow-wrap:anywhere;}
+  .canvas-note {border-left:3px solid var(--teal);padding:7px 12px;background:#f8faf9;color:var(--muted);border-radius:0 8px 8px 0;font-size:11.5px;margin-top:8px;white-space:pre-wrap;}
+  .density-compact .card-item { padding:7px 9px; }
+  .density-compact .cards { gap:4px; }
+  .density-compact .card-preview { -webkit-line-clamp:1; }
+  .density-comfortable .card-item { padding:18px; }
+  .density-comfortable .cards { gap:12px; }
+  .btn-link { border:0;background:transparent;color:var(--teal);padding:0;cursor:pointer;font-size:11px; }
+  .btn-link:hover {text-decoration:underline;}
+  .paper-tile {border-left:4px solid var(--teal);}
+  @media(max-width:650px) { .paper-reorder {display:none;} .custom-field {grid-template-columns:1fr 1fr 27px;} }
+  @media(max-width:1180px) { .board-layout { grid-template-columns:minmax(0,1fr) 320px; } .main { padding:23px 18px; } }
+  @media(max-width:940px) { .app { grid-template-columns:200px minmax(0,1fr); } .board-layout { grid-template-columns:minmax(0,1fr); } .editor { position:static; } .editor-scroll { max-height:none; } .stats { grid-template-columns:repeat(2,minmax(0,1fr)); } }
+  @media(max-width:650px) { .app { display:block; } .sidebar { min-height:auto; padding:10px 11px; gap:9px; } .brand { padding:0 3px; } .brand-sub { display:none; } .side-heading { display:none; } .side-link { padding:7px; font-size:12px; } #paper-links { display:flex; flex-direction:row; gap:4px; overflow-x:auto; } .paper-link { min-width:155px; width:auto; padding:8px; } .paper-link .paper-meta { display:none; } .side-create { min-width:90px; width:auto; padding:8px; margin:0; } .sidebar-bottom { display:none; } .topbar { padding:10px 13px; } .main { padding:18px 12px 40px; } .heading { margin-bottom:13px; } .stats { gap:7px; } .stat { padding:10px; } .panel-h { padding:13px; } .cards { padding:7px; } .card-item { padding:10px 6px; } .top-actions .top-export { display:inline-flex; } .topbar { flex-wrap:wrap; } .top-actions { flex-wrap:wrap; } .grip { display:none; } }
+ 
+  /* Cloud sync, deliberately isolated from the generic editable workspace. */
+  .cloud-status { border:1px solid var(--border); border-radius:9px; background:#fff; padding:7px 10px; color:var(--muted); font-size:11px; max-width:230px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; cursor:pointer; }
+  .cloud-status.ready { color:#146e64; border-color:#a7d9cd; background:#effaf6; }
+  .cloud-status.warning { color:#9b5f17; border-color:#e7c997; background:#fffaf0; }
+  .cloud-status.conflict { color:#a33232; border-color:#edb8b8; background:#fff4f4; }
+  .cloud-overlay { position:fixed; inset:0; z-index:1100; background:rgba(15,29,41,.65); display:flex; justify-content:center; align-items:center; padding:14px; }
+  .cloud-dialog { background:white; width:min(100%,620px); max-height:calc(100vh - 28px); overflow:auto; border-radius:16px; box-shadow:0 22px 85px #0003; padding:24px; }
+  .cloud-dialog h2 { font-size:20px; margin:0 0 7px; }
+  .cloud-dialog h3 { font-size:13px; margin:18px 0 8px; }
+  .cloud-dialog .help { font-size:12px; color:var(--muted); margin:8px 0; line-height:1.7; }
+  .cloud-dialog .row-actions { display:flex; flex-wrap:wrap; gap:9px; margin-top:16px; }
+  .cloud-dialog .row-actions > button { flex:1 1 160px; }
+  .cloud-dialog label { display:block; margin-top:13px; margin-bottom:4px; font-size:12px; font-weight:650; }
+  .cloud-dialog .cloud-head { display:flex; justify-content:space-between; align-items:start; gap:9px; }
+  .cloud-dialog .cloud-bar { font-size:11px; padding:10px 12px; border:1px solid #d6e4eb; background:#f4f8fa; border-radius:8px; margin:12px 0; overflow-wrap:anywhere; }
+  .cloud-dialog .cloud-alert { border-color:#efcbaf; background:#fff7ed; }
+  .cloud-dialog .cloud-critical { border-color:#eeaeae; background:#fff1f1; }
+  .cloud-dialog .cloud-mini { font-size:11px; color:var(--muted); margin-top:5px; }
+  @media(max-width:650px){ .cloud-dialog {padding:16px;} .cloud-status {max-width:145px;} }
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="sidebar">
+    <div class="brand"><div class="mark">∴</div><div><div class="brand-title" id="brand-title">Cutting Board</div><div class="brand-sub">General Studio <button class="btn-link" style="color:#a5c9c1" data-act="workspace-settings">編集</button></div></div></div>
+    <div class="nav-group"><div class="side-heading">Workspace</div><button class="side-link" id="overview-nav" data-act="overview"><span class="side-icon">▦</span> すべての論文</button></div>
+    <div class="nav-group"><div class="side-heading">Papers</div><div id="paper-links"></div><button class="side-create" data-act="new-paper">＋ 新しい論文</button></div>
+    <div class="sidebar-bottom"><button data-act="types">⚑　論点の種類を管理</button><button data-act="statuses">◉　ステータスを管理</button><button data-act="workspace-settings">⚙　ワークスペース設定</button><button data-act="backup">⇩　バックアップ・復元</button><div class="sidebar-small">オフライン編集可 · クラウド連携は設定後<br><span id="storage-state">保存状況を確認中</span></div></div>
+  </aside>
+  <div class="workspace">
+    <div class="topbar"><div class="crumb" id="crumb"></div><div class="top-actions"><button id="cloud-status-button" class="cloud-status" type="button" data-cloud-act="open">☁ 同期設定</button><button class="btn small top-export" data-act="workspace-settings">⚙ 設定</button><button class="btn small top-export" data-act="backup">⇩ データ</button><button class="btn primary small" data-act="new-card">＋ 新しいカード</button></div></div>
+    <main class="main" id="main"></main>
+  </div>
+</div>
+<div id="modal-root"></div>
+<div id="toast-root"></div>
+<div id="cloud-root"></div>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<input type="file" id="file-input" accept=".json,application/json" hidden />
+<script>
+(() => {
+'use strict';
+const KEY='cutting-board-studio-generic-v1'; // existing data remains readable
+const CLOUD_KEY='cutting-board-studio-cloud-config-v1';
+const SYNC_KEY='cutting-board-studio-cloud-sync-v1';
+const BASE_TYPES=['主張','問い','根拠','反論','比較','メモ'];
+const DEFAULT_STATUSES=['未着手','検討中','完了','保留'];
+const COLOR_DEFAULT='#157f76';
+const safeColor=v=>/^#[0-9a-fA-F]{6}$/.test(v||'')?v:COLOR_DEFAULT;
+const defaultWorkspace=()=>({name:'Cutting Board',description:'複数の論文とカードをまとめて整理するワークスペース',reasonLabel:'Reasoning Order',paperLabel:'Paper Sequence',accent:COLOR_DEFAULT,density:'normal',showPreview:true,showMeta:true});
+const fieldList=v=>Array.isArray(v)?v.filter(f=>f&&typeof f==='object').map(f=>({id:typeof f.id==='string'?f.id:uuid(),key:String(f.key||''),value:String(f.value||'')})):[];
+const tagList=v=>Array.isArray(v)?v.map(x=>String(x).trim()).filter(Boolean):typeof v==='string'?v.split(/[,，、]/).map(x=>x.trim()).filter(Boolean):[];
+const stringTags=v=>tagList(v).join(', ');
+const now=()=>new Date().toISOString();
+const uuid=()=>typeof crypto!=='undefined'&&typeof crypto.randomUUID==='function'?crypto.randomUUID():('u'+Date.now().toString(36)+Math.random().toString(36).slice(2,12));
+const esc=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const attr=esc;
+const short=x=>String(x||'').slice(0,30);
+function blankPaper(title,subtitle='') { return {id:uuid(),title,subtitle,notes:'',tags:[],phase:'',color:COLOR_DEFAULT,fields:[],createdAt:now(),updatedAt:now(),nextCode:0,cards:[],reasonOrder:[],paperOrder:[]}; }
+function initialState(){
+ const p=blankPaper('無題の論文');
+ return {format:'cutting-board-studio',version:2,updatedAt:now(),types:[...BASE_TYPES],typeColors:{},statuses:[...DEFAULT_STATUSES],cutStatus:'保留',doneStatus:'完了',todoStatus:'未着手',workspace:defaultWorkspace(),activePaperId:p.id,papers:[p]};
+}
+function normalize(obj){
+ if(!obj||!Array.isArray(obj.papers))throw Error('論文データがありません。');
+ const t=[...new Set([...(Array.isArray(obj.types)?obj.types:BASE_TYPES),...obj.papers.flatMap(p=>Array.isArray(p.cards)?p.cards.map(c=>c.type):[])].filter(x=>typeof x==='string'&&x.trim()))];
+ const sts=[...new Set([...(Array.isArray(obj.statuses)?obj.statuses:DEFAULT_STATUSES),...obj.papers.flatMap(p=>Array.isArray(p.cards)?p.cards.map(c=>c.status):[])].filter(x=>typeof x==='string'&&x.trim()))];
+ const allIds=new Set();const paperIds=new Set();
+ const papers=obj.papers.map(p=>{
+   if(!p||typeof p.id!=='string'||paperIds.has(p.id)||typeof p.title!=='string'||!Array.isArray(p.cards))throw Error('論文データが不正です。');
+   paperIds.add(p.id);
+   const ids=new Set();const codes=new Set();
+   const cards=p.cards.map(c=>{
+     if(!c||typeof c.id!=='string'||!c.id||ids.has(c.id)||allIds.has(c.id)||typeof c.title!=='string')throw Error('カードIDが不正か重複しています。');
+     ids.add(c.id);allIds.add(c.id);
+     const code=typeof c.code==='string'&&c.code?c.code:'C'+String(codes.size).padStart(2,'0');
+     if(codes.has(code))throw Error('カードの表示IDが重複しています。');
+     codes.add(code);
+     return {id:c.id,code,title:c.title,body:typeof c.body==='string'?c.body:'',type:t.includes(c.type)?c.type:t[0],status:sts.includes(c.status)?c.status:sts[0],deps:Array.isArray(c.deps)?[...new Set(c.deps.filter(x=>typeof x==='string'))]:[],notes:String(c.notes||''),source:String(c.source||''),tags:tagList(c.tags),fields:fieldList(c.fields),createdAt:c.createdAt||now(),updatedAt:c.updatedAt||now()};
+   });
+   const order=(arr)=>Array.isArray(arr)&&arr.length===ids.size&&new Set(arr).size===ids.size&&arr.every(x=>ids.has(x))?[...arr]:cards.map(c=>c.id);
+   return {id:p.id,title:p.title,subtitle:typeof p.subtitle==='string'?p.subtitle:'',notes:String(p.notes||''),tags:tagList(p.tags),phase:String(p.phase||''),color:safeColor(p.color),fields:fieldList(p.fields),createdAt:p.createdAt||now(),updatedAt:p.updatedAt||now(),nextCode:Math.max(Number(p.nextCode)||0,...cards.map(c=>{const m=/^C(\d+)$/.exec(c.code);return m?Number(m[1])+1:0;}),0),cards,reasonOrder:order(p.reasonOrder),paperOrder:order(p.paperOrder)};
+ });
+ papers.forEach(p=>p.cards.forEach(c=>{c.deps=c.deps.filter(id=>allIds.has(id)&&id!==c.id);}));
+ const w={...defaultWorkspace(),...(obj.workspace&&typeof obj.workspace==='object'?obj.workspace:{})};w.name=String(w.name||'Cutting Board');w.description=String(w.description||'');w.reasonLabel=String(w.reasonLabel||'Reasoning Order');w.paperLabel=String(w.paperLabel||'Paper Sequence');w.accent=safeColor(w.accent);w.density=['compact','normal','comfortable'].includes(w.density)?w.density:'normal';w.showPreview=w.showPreview!==false;w.showMeta=w.showMeta!==false;
+ const s=sts.length?sts:[...DEFAULT_STATUSES];papers.forEach(p=>p.cards.forEach(c=>{if(!s.includes(c.status))c.status=s[0];}));return {format:'cutting-board-studio',version:2,updatedAt:obj.updatedAt||now(),types:t.length?t:[...BASE_TYPES],typeColors:obj.typeColors&&typeof obj.typeColors==='object'?Object.fromEntries(Object.entries(obj.typeColors).map(([k,v])=>[k,safeColor(v)])):{},statuses:s,cutStatus:s.includes(obj.cutStatus)?obj.cutStatus:(s.includes('保留')?'保留':s.includes('Cut')?'Cut':s[s.length-1]),doneStatus:s.includes(obj.doneStatus)?obj.doneStatus:(s.includes('完了')?'完了':s.includes('支持済')?'支持済':s[0]),todoStatus:s.includes(obj.todoStatus)?obj.todoStatus:(s.includes('未着手')?'未着手':s.includes('未解決')?'未解決':s[0]),workspace:w,activePaperId:papers.some(p=>p.id===obj.activePaperId)?obj.activePaperId:(papers[0]?.id||null),papers};
+}
+let state,saveHealthy=true;
+try {const saved=localStorage.getItem(KEY);state=saved?normalize(JSON.parse(saved)):initialState();}catch(e){state=initialState();saveHealthy=false;}
+const ui={section:'paper',view:'reason',selectedCardId:null,search:'',typeFilter:'all',statusFilter:'all',showCut:true,globalSearch:'',depSearch:'',modal:null,toastTimer:null,modalSaveMode:'replace'};
+const cloud={config:null,client:null,user:null,revision:null,dirty:false,saving:false,checking:false,conflict:null,ready:false,connected:false,timer:null,interval:null,channel:null,modal:false,message:'未接続',lastSyncedFingerprint:null,saveFailure:false,generation:0};
+const $=s=>document.querySelector(s);
+const paper=()=>state.papers.find(p=>p.id===state.activePaperId)||state.papers[0]||null;
+const allCards=()=>state.papers.flatMap(p=>p.cards.map(c=>({paper:p,card:c})));
+const cardRef=id=>{for(const p of state.papers){const c=p.cards.find(c=>c.id===id);if(c)return {paper:p,card:c};}return null;};
+const selected=()=>paper()?.cards.find(c=>c.id===ui.selectedCardId)||null;
+const touch=(p,c)=>{if(c)c.updatedAt=now();if(p)p.updatedAt=now();};
+function applyAppearance(){const w=state.workspace||defaultWorkspace();document.documentElement.style.setProperty('--teal',safeColor(w.accent));document.body.classList.remove('density-compact','density-normal','density-comfortable');document.body.classList.add('density-'+w.density);$('#brand-title').textContent=w.name||'Cutting Board';document.title=(w.name||'Cutting Board')+' — Research Workspace';}
+function persist(){
+ state.updatedAt=now();applyAppearance();
+ try{localStorage.setItem(KEY,JSON.stringify(state));saveHealthy=true;}catch(e){saveHealthy=false;toast('自動保存できません。JSONでバックアップしてください。');}
+ const badge=$('#storage-state');if(badge)badge.textContent=saveHealthy?'● ローカル自動保存中':'⚠ ローカル保存不可：JSONを使用';
+ if(cloud.ready && cloud.user){
+   cloud.dirty=workspaceFingerprint(state)!==cloud.lastSyncedFingerprint;
+   if(cloud.dirty&&!cloud.conflict)queueCloudSave();
+ }
+ updateCloudIndicator();
+}
+function toast(message){const root=$('#toast-root');root.innerHTML='<div class="toast">'+esc(message)+'</div>';clearTimeout(ui.toastTimer);ui.toastTimer=setTimeout(()=>root.innerHTML='',3200);}
+function openModal(type,data={}){ui.modal={type,...data};if(type==='paper-settings')ui.modal.paperFields=fieldList(paper()?.fields);renderModal();}
+function closeModal(){const was=ui.modal?.type;ui.modal=null;$('#modal-root').innerHTML='';if(['types','statuses'].includes(was))render();}
+function ensureSelection(){const p=paper();if(!p){ui.section='overview';ui.selectedCardId=null;return;}if(!p.cards.some(c=>c.id===ui.selectedCardId))ui.selectedCardId=p.cards[0]?.id||null;}
+function switchPaper(id,cardId=null){if(!state.papers.some(p=>p.id===id))return;state.activePaperId=id;ui.section='paper';ui.search='';ui.typeFilter='all';ui.statusFilter='all';ui.depSearch='';ui.selectedCardId=cardId;ensureSelection();persist();render();}
+function customFieldsHtml(scope,fields){
+ return `<div class="field custom-fields-wrap" data-scope="${scope}"><div class="custom-title">追加プロパティ（項目名も値も自由に編集）</div>${fields.map(f=>`<div class="custom-field"><input type="text" class="custom-key" data-scope="${scope}" data-field-id="${attr(f.id)}" value="${attr(f.key)}" placeholder="項目名" /><input type="text" class="custom-value" data-scope="${scope}" data-field-id="${attr(f.id)}" value="${attr(f.value)}" placeholder="内容" /><button class="icon-btn tiny" data-act="remove-custom-field" data-scope="${scope}" data-field-id="${attr(f.id)}" title="この項目を削除">×</button></div>`).join('')}<button class="btn small" data-act="add-custom-field" data-scope="${scope}">＋ 自由項目を追加</button></div>`;
+}
+function refreshPaperFields(){const old=$('.custom-fields-wrap[data-scope=\"paper\"]');if(!old)return;const container=document.createElement('div');container.innerHTML=customFieldsHtml('paper',ui.modal.paperFields);old.replaceWith(container.firstElementChild);}
+function reorderPaper(id,d){const i=state.papers.findIndex(p=>p.id===id),j=i+d;if(i<0||j<0||j>=state.papers.length)return;[state.papers[i],state.papers[j]]=[state.papers[j],state.papers[i]];persist();render();}
+function moveLabel(kind,label,step){const list=kind==='type'?state.types:state.statuses;const i=list.indexOf(label),j=i+step;if(i<0||j<0||j>=list.length)return;[list[i],list[j]]=[list[j],list[i]];persist();renderModal();}
+function renameLabel(kind,old,value){
+ const list=kind==='type'?state.types:state.statuses;
+ if(!list.includes(old))return false;
+ if(!value){toast('名前を空欄にはできません。');return false;}
+ if(old===value)return true;
+ if(list.some(x=>x!==old&&x.toLowerCase()===value.toLowerCase())){toast('同じ名前が既にあります。');return false;}
+ list[list.indexOf(old)]=value;
+ for(const {paper:p,card:c} of allCards()){if((kind==='type'&&c.type===old)||(kind==='status'&&c.status===old)){if(kind==='type')c.type=value;else c.status=value;touch(p,c);}}
+ if(kind==='type'){if(state.typeColors[old]){state.typeColors[value]=state.typeColors[old];delete state.typeColors[old];}if(ui.typeFilter===old)ui.typeFilter=value;}
+ else {if(state.cutStatus===old)state.cutStatus=value;if(state.doneStatus===old)state.doneStatus=value;if(state.todoStatus===old)state.todoStatus=value;if(ui.statusFilter===old)ui.statusFilter=value;}
+ persist();renderModal();toast('名称を更新し、既存カードに反映しました。');return true;
+}
+function renderSidebar(){
+ const link=$('#paper-links');
+ link.innerHTML=state.papers.map((p,i)=>`<div class="paper-entry"><button class="paper-link ${ui.section==='paper'&&state.activePaperId===p.id?'active':''}" data-act="switch-paper" data-id="${attr(p.id)}" title="${attr(p.title)}"><span class="side-icon" style="color:${safeColor(p.color)}">▤</span><span class="paper-identity"><span class="paper-name">${esc(p.title)}</span><span class="paper-meta">${esc(p.phase||p.subtitle||'副題なし')}</span></span><span class="pillcount">${p.cards.length}</span></button><span class="paper-reorder"><button data-act="paper-up" data-id="${attr(p.id)}" title="論文を上へ" ${i===0?'disabled':''}>▲</button><button data-act="paper-down" data-id="${attr(p.id)}" title="論文を下へ" ${i===state.papers.length-1?'disabled':''}>▼</button></span></div>`).join('');
+ $('#overview-nav').classList.toggle('active',ui.section==='overview');
+ const p=paper();$('#crumb').innerHTML=ui.section==='overview'?'Workspace / <strong>すべての論文</strong>':`Workspace / Papers / <strong>${esc(p?.title||'')}</strong>`;
+ const storage=$('#storage-state');storage.textContent=saveHealthy?'● ローカル自動保存中':'⚠ ローカル保存不可：JSONを使用';
+ const add=$('[data-act="new-card"]');if(add)add.disabled=!p;
+}
+function statsHtml(p){const active=p.cards.filter(c=>c.status!==state.cutStatus);const unresolved=active.filter(c=>c.status===state.todoStatus);const supported=active.filter(c=>c.status===state.doneStatus);const cross=p.cards.filter(c=>c.deps.some(d=>cardRef(d)?.paper.id!==p.id));return `<div class="stats"><div class="stat"><div class="n">${p.cards.length}</div><div class="label">すべてのカード</div></div><div class="stat"><div class="n">${unresolved.length}</div><div class="label">${esc(state.todoStatus)}</div></div><div class="stat"><div class="n">${supported.length}</div><div class="label">${esc(state.doneStatus)}</div></div><div class="stat"><div class="n">${cross.length}</div><div class="label">他論文への依存があるカード</div></div></div>`;}
+function badgeStatus(status){return status===state.doneStatus?'done':status===state.cutStatus?'cut':'';}
+function cardHtml(p,c,idx,arr,canOrder){
+ const deps=c.deps.map(id=>cardRef(id)).filter(Boolean).slice(0,3).map(ref=>`<span class="dep-mini" title="${attr(ref.paper.title+' / '+ref.card.title)}">${esc(ref.paper.id===p.id?'':short(ref.paper.title)+' / ')}${esc(ref.card.code)}</span>`).join('');
+ return `<div class="card-item ${c.id===ui.selectedCardId?'selected':''}" data-card-id="${attr(c.id)}" draggable="${canOrder}" role="button" tabindex="0" aria-label="カードを編集：${attr(c.title)}"><div class="grip" title="ドラッグして並び替え">⠿</div><div class="card-body"><div class="card-top"><span class="code">${esc(c.code)}</span><span class="tag" style="border-left:3px solid ${safeColor(state.typeColors[c.type]||COLOR_DEFAULT)}">${esc(c.type)}</span><span class="status-dot ${badgeStatus(c.status)}"></span><span class="subtle">${esc(c.status)}</span></div><div class="card-title">${esc(c.title||'無題のカード')}</div>${state.workspace.showPreview&&c.body?`<div class="card-preview">${esc(c.body)}</div>`:''}${state.workspace.showMeta&&c.tags.length?`<div class="metadata">${c.tags.slice(0,4).map(t=>`<span class="meta-pill"># ${esc(t)}</span>`).join('')}</div>`:''}${deps?`<div class="deps-preview">↳ ${deps}${c.deps.length>3?`<span>+${c.deps.length-3}</span>`:''}</div>`:''}</div><div class="card-controls"><button class="icon-btn tiny" data-act="move-up" data-id="${attr(c.id)}" aria-label="上へ" title="上へ" ${!canOrder||idx===0?'disabled':''}>↑</button><button class="icon-btn tiny" data-act="move-down" data-id="${attr(c.id)}" aria-label="下へ" title="下へ" ${!canOrder||idx===arr.length-1?'disabled':''}>↓</button></div></div>`;
+}
+function renderBoard(){const p=paper();if(!p){ui.section='overview';return renderOverview();}ensureSelection();
+ const order=(ui.view==='reason'?p.reasonOrder:p.paperOrder),sorted=order.map(id=>p.cards.find(c=>c.id===id)).filter(Boolean);
+ const q=ui.search.toLocaleLowerCase();
+ const cards=sorted.filter(c=>(ui.showCut||c.status!==state.cutStatus)&&(ui.typeFilter==='all'||c.type===ui.typeFilter)&&(ui.statusFilter==='all'||c.status===ui.statusFilter)&&(!q||[c.title,c.body,c.notes,c.source,stringTags(c.tags),c.code,c.type,...c.fields.map(f=>f.key+' '+f.value)].some(x=>String(x).toLocaleLowerCase().includes(q))));
+ const canOrder=ui.search===''&&ui.typeFilter==='all'&&ui.statusFilter==='all'&&ui.showCut;
+ $('#main').innerHTML=`<div class="heading"><div><div class="eyebrow">Research workspace · Paper</div><h1><span class="editable-title" data-act="paper-settings" title="クリックして編集">${esc(p.title)} <span class="edit-tip">✎</span></span></h1><p class="desc editable-title" data-act="paper-settings" title="副題・概要を編集">${esc(p.subtitle||'副題・概要を入力する')} ✎</p>${p.phase||p.tags.length?`<div class="metadata">${p.phase?`<span class="meta-pill">${esc(p.phase)}</span>`:''}${p.tags.map(t=>`<span class="meta-pill"># ${esc(t)}</span>`).join('')}</div>`:''}${p.notes?`<div class="canvas-note editable-title" data-act="paper-settings" title="ノートを編集">${esc(p.notes)}</div>`:''}</div><div class="top-actions"><button class="btn" data-act="paper-settings">⚙ 論文の設定・改名</button><button class="btn primary" data-act="new-card">＋ カード</button></div></div>${statsHtml(p)}<div class="board-layout"><section class="panel"><div class="panel-h"><div style="display:flex;justify-content:space-between;gap:8px;align-items:center"><h2>論点の構成</h2><span class="subtle">${cards.length} / ${p.cards.length} cards</span></div><div class="toolbar"><div class="segmented"><button data-act="set-view" data-view="reason" class="${ui.view==='reason'?'on':''}">${esc(state.workspace.reasonLabel)}</button><button data-act="set-view" data-view="paper" class="${ui.view==='paper'?'on':''}">${esc(state.workspace.paperLabel)}</button></div><div class="search"><input id="card-search" type="search" placeholder="この論文のカードを検索" value="${attr(ui.search)}" /></div></div><div class="filters"><select id="filter-type" aria-label="種類で絞り込み"><option value="all">すべての種類</option>${state.types.map(t=>`<option value="${attr(t)}" ${t===ui.typeFilter?'selected':''}>${esc(t)}</option>`).join('')}</select><select id="filter-status" aria-label="状況で絞り込み"><option value="all">すべての状況</option>${state.statuses.map(t=>`<option value="${attr(t)}" ${t===ui.statusFilter?'selected':''}>${esc(t)}</option>`).join('')}</select><label class="check"><input type="checkbox" id="show-cut" ${ui.showCut?'checked':''}> ${esc(state.cutStatus)}も表示</label></div></div><div class="list-note">${canOrder?'⠿ をドラッグ、または ↑ ↓ で並び替え（もう一方の順序は保持）':'絞り込み中です。並び替えにはフィルタを解除し、Cutを表示してください。'}</div><div class="cards" id="cards-list">${cards.length?cards.map((c,i)=>cardHtml(p,c,i,cards,canOrder)).join(''):`<div class="empty"><div class="big">◇</div>表示できるカードはありません。<br><span class="subtle">「＋ カード」から自由に追加できます。</span></div>`}</div></section><aside id="editor-slot" class="panel editor"></aside></div>`;
+ renderEditor();
+}
+function editorDepHtml(c){
+ const refList=c.deps.map(id=>cardRef(id)).filter(Boolean);
+ const q=ui.depSearch.toLocaleLowerCase();
+ const options=allCards().filter(({card:r,paper:p})=>r.id!==c.id&&!c.deps.includes(r.id)&&(!q||[r.title,r.body,r.code,p.title,p.subtitle].some(s=>String(s).toLocaleLowerCase().includes(q)))).slice(0,12);
+ return `<div class="field"><label>カード間の依存関係 · ${refList.length} 件</label><p class="field-help">同一論文・他論文のカードを参照できます。順序とは独立です。</p><div class="dep-list">${refList.length?refList.map(ref=>`<div class="dep-chip"><span title="${attr(ref.paper.title+' / '+ref.card.title)}"><strong>${esc(ref.paper.title===paper()?.title?'':short(ref.paper.title)+' / ')}${esc(ref.card.code)}</strong> · ${esc(ref.card.title)}</span><button class="icon-btn tiny" data-act="visit-dep" data-id="${attr(ref.card.id)}" title="参照先へ移動">↗</button><button class="icon-btn tiny" data-act="remove-dep" data-id="${attr(ref.card.id)}" title="依存を解除">×</button></div>`).join(''):'<span class="subtle">まだ依存関係はありません。</span>'}</div><div class="search"><input id="dep-search" type="search" value="${attr(ui.depSearch)}" placeholder="依存するカードを全論文から検索" /></div><div class="dep-list" id="dep-options">${options.map(ref=>`<button class="dep-choice" data-act="add-dep" data-id="${attr(ref.card.id)}"><span style="flex:1;min-width:0"><strong>${esc(ref.card.code)} · ${esc(ref.card.title)}</strong><br><span class="dep-ref">${esc(ref.paper.title)}</span></span><span style="color:var(--teal)">＋</span></button>`).join('')||'<span class="subtle">追加できるカードがありません。</span>'}</div></div>`;
+}
+function renderEditor(){const p=paper(),c=selected(),root=$('#editor-slot');if(!root)return;
+ if(!c){root.innerHTML=`<div class="panel-b muted-center"><div style="font-size:27px">✎</div><h3>カードを選択してください</h3><p>新しいカードを追加することもできます。</p><button class="btn primary" data-act="new-card">＋ カードを作成</button></div>`;return;}
+ root.innerHTML=`<div class="editor-scroll"><div class="panel-h"><div class="editor-head"><div><div class="eyebrow">Card editor</div><h2>カードを編集 <span class="code">${esc(c.code)}</span></h2></div><button class="icon-btn" data-act="delete-card" title="カードを削除">▤</button></div></div><div class="panel-b"><div class="field-row"><div class="field"><label for="editor-code">カードの表示ID（変更可能）</label><input type="text" id="editor-code" value="${attr(c.code)}" placeholder="C00" /></div><div class="field"><label>内部ID（依存関係のため固定）</label><input type="text" value="${attr(c.id)}" disabled title="内部IDは変更できません" /></div></div><div class="field"><label for="editor-title">論点名</label><input type="text" id="editor-title" value="${attr(c.title)}" placeholder="論点のタイトル" /></div><div class="field"><label for="editor-body">命題・内容</label><textarea id="editor-body" rows="6" placeholder="内容、理由、検討事項などを自由に入力">${esc(c.body)}</textarea></div><div class="field"><label for="editor-notes">作業メモ・補足・保留事項</label><textarea id="editor-notes" rows="3" placeholder="未完成の検討事項を記録できます">${esc(c.notes)}</textarea></div><div class="field-row"><div class="field"><label for="editor-tags">タグ（カンマ区切り）</label><input id="editor-tags" type="text" value="${attr(stringTags(c.tags))}" placeholder="キーワード1, キーワード2" /></div><div class="field"><label for="editor-source">文献・出典・URL</label><input id="editor-source" type="text" value="${attr(c.source)}" placeholder="著者・年・ページ・URLなど" /></div></div><div class="field-row"><div class="field"><label for="editor-type">論点の種類</label><select id="editor-type">${state.types.map(t=>`<option value="${attr(t)}" ${c.type===t?'selected':''}>${esc(t)}</option>`).join('')}</select><button class="btn small ghost" data-act="types" style="margin-top:6px">＋ 種類を追加</button></div><div class="field"><label for="editor-status">検討状況</label><select id="editor-status">${state.statuses.map(s=>`<option value="${attr(s)}" ${c.status===s?'selected':''}>${esc(s)}</option>`).join('')}</select><button class="btn small ghost" data-act="statuses" style="margin-top:6px">＋ ステータスを編集</button></div></div><div class="tinyline"></div>${customFieldsHtml('card',c.fields)}<div class="tinyline"></div>${editorDepHtml(c)}<div class="tinyline"></div><div class="stack"><button class="btn" data-act="transfer-card" data-mode="copy">⧉　他の論文へ複製</button><button class="btn" data-act="transfer-card" data-mode="move">⇄　他の論文へ移動</button><button class="btn danger" data-act="delete-card">×　このカードを削除</button></div><p class="field-help">編集内容は自動保存されます。削除は確認後に実行されます。</p></div></div>`;
+}
+function renderOverview(){
+ const q=ui.globalSearch.toLocaleLowerCase();const matches=allCards().filter(({paper:p,card:c})=>!q||[p.title,p.subtitle,p.notes,p.phase,stringTags(p.tags),...p.fields.map(f=>f.key+' '+f.value),c.title,c.body,c.notes,c.source,stringTags(c.tags),c.type,c.code,...c.fields.map(f=>f.key+' '+f.value)].some(s=>String(s).toLocaleLowerCase().includes(q))).sort((a,b)=>String(b.card.updatedAt).localeCompare(String(a.card.updatedAt))).slice(0,100);
+ $('#main').innerHTML=`<div class="heading"><div><div class="eyebrow">All papers · Workspace</div><h1 class="editable-title" data-act="workspace-settings">${esc(state.workspace.name)} ✎</h1><p class="desc editable-title" data-act="workspace-settings">${esc(state.workspace.description)} ✎</p></div><button class="btn primary" data-act="new-paper">＋ 新しい論文</button></div><div class="stats"><div class="stat"><div class="n">${state.papers.length}</div><div class="label">論文</div></div><div class="stat"><div class="n">${allCards().length}</div><div class="label">論点カード</div></div><div class="stat"><div class="n">${allCards().filter(r=>r.card.status===state.todoStatus).length}</div><div class="label">${esc(state.todoStatus)}</div></div><div class="stat"><div class="n">${allCards().filter(r=>r.card.deps.some(d=>cardRef(d)?.paper.id!==r.paper.id)).length}</div><div class="label">論文間の依存関係を持つカード</div></div></div><div class="paper-grid">${state.papers.map(p=>`<button class="paper-tile" style="border-left-color:${safeColor(p.color)}" data-act="switch-paper" data-id="${attr(p.id)}"><div class="eyebrow">Paper / ${p.cards.length} cards</div><h3>${esc(p.title)}</h3><p>${esc(p.subtitle||'副題なし')}</p>${p.phase?`<span class="meta-pill">${esc(p.phase)}</span>`:''}<span class="subtle">${p.cards.filter(c=>c.status===state.todoStatus).length} ${esc(state.todoStatus)}　·　${p.cards.filter(c=>c.status===state.cutStatus).length} ${esc(state.cutStatus)}　　↗</span></button>`).join('')}<button class="paper-tile" data-act="new-paper" style="border-style:dashed;display:grid;place-content:center;text-align:center;color:var(--teal)"><div style="font-size:31px">＋</div><strong>新しい論文を作成</strong></button></div><section class="panel"><div class="panel-h"><div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap"><h2>すべてのカードを横断検索</h2><span class="subtle">最大100件表示</span></div><div class="search" style="margin-top:12px"><input id="global-search" type="search" value="${attr(ui.globalSearch)}" placeholder="タイトル・本文・論文名・論点の種類で検索" /></div></div><div class="overview-list">${matches.map(({paper:p,card:c})=>`<button class="overview-item" data-act="visit-card" data-id="${attr(c.id)}"><span class="code">${esc(c.code)}</span><div class="info"><strong>${esc(c.title||'無題のカード')}</strong><small>${esc(p.title)} · ${esc(c.type)} · ${esc(c.status)}</small></div><span style="color:var(--teal)">↗</span></button>`).join('')||'<div class="muted-center">該当するカードがありません。</div>'}</div></section>`;
+}
+function render(){renderSidebar();ui.section==='overview'?renderOverview():renderBoard();renderModal();updateCloudIndicator();}
+function renderModal(){const root=$('#modal-root');const m=ui.modal;if(!m){root.innerHTML='';return;}
+ let title='',content='',footer='';
+ if(m.type==='new-paper'){
+ title='新しい論文を作成';content=`<div class="field"><label>論文の名前</label><input id="modal-paper-title" type="text" placeholder="論文のタイトルを入力" /></div><div class="field"><label>副題・概要（任意）</label><textarea id="modal-paper-subtitle" placeholder="論文の概要や補足説明" rows="3"></textarea></div>`;
+ footer=`<button class="btn" data-act="close-modal">キャンセル</button><button class="btn primary" data-act="create-paper">作成する</button>`;
+ }else if(m.type==='paper-settings'){
+ const p=paper();title='論文の設定・改名';content=`<div class="field"><label>論文名</label><input id="modal-paper-title" type="text" value="${attr(p.title)}" /></div><div class="field"><label>副題・概要</label><textarea id="modal-paper-subtitle" rows="3">${esc(p.subtitle)}</textarea></div><div class="field"><label>進行段階（自由記述）</label><input type="text" id="modal-paper-phase" value="${attr(p.phase)}" placeholder="例：構想中、調査中、執筆中" /></div><div class="field"><label>論文のタグ</label><input type="text" id="modal-paper-tags" value="${attr(stringTags(p.tags))}" placeholder="キーワードをカンマ区切りで入力" /></div><div class="field"><label>論文ノート</label><textarea id="modal-paper-notes" rows="4">${esc(p.notes)}</textarea></div><div class="field"><label>識別カラー</label><input type="color" id="modal-paper-color" value="${safeColor(p.color)}" /></div>${customFieldsHtml('paper',m.paperFields)}<div class="hint">論文を改名しても、カードや論文間の依存関係は保持されます。</div><div class="tinyline"></div><div class="stack"><button class="btn" data-act="duplicate-paper">⧉ この論文を複製</button><button class="btn danger" data-act="delete-paper">× この論文を削除</button></div>`;
+ footer=`<button class="btn" data-act="close-modal">閉じる</button><button class="btn primary" data-act="save-paper-settings">変更を保存</button>`;
+ }else if(m.type==='types'){
+ title='論点の種類を管理';const counts=Object.fromEntries(state.types.map(t=>[t,allCards().filter(({card:c})=>c.type===t).length]));
+ content=`<p class="subtle">種類はワークスペース全体で共有され、すべての論文で使用できます。</p><div class="stack">${state.types.map(t=>`<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;border-bottom:1px solid var(--line);padding:6px 0"><div><input type="text" class="label-rename" data-kind="type" data-original="${attr(t)}" value="${attr(t)}" title="変更してEnterまたはフォーカスを外すと改名" /><span class="subtle" style="margin-left:8px">${counts[t]} 件</span></div><input type="color" class="type-color" data-type="${attr(t)}" value="${safeColor(state.typeColors[t])}" title="種類の色" /><button class="icon-btn tiny" data-act="type-up" data-type="${attr(t)}" title="上へ">↑</button><button class="icon-btn tiny" data-act="type-down" data-type="${attr(t)}" title="下へ">↓</button><button class="btn small danger" data-act="remove-type" data-type="${attr(t)}" ${counts[t]?'disabled title="使用中のため削除できません"':''}>削除</button></div>`).join('')}</div><div class="tinyline"></div><div class="field"><label>新しい種類</label><div style="display:flex;gap:7px"><input id="modal-new-type" type="text" placeholder="例：定義、方法、データ、検討事項" /><button class="btn primary nowrap" data-act="add-type">＋ 追加</button></div></div>`;
+ footer=`<button class="btn" data-act="close-modal">完了</button>`;
+ }else if(m.type==='statuses'){
+ title='ステータスを管理';const counts=Object.fromEntries(state.statuses.map(s=>[s,allCards().filter(({card:c})=>c.status===s).length]));
+ content=`<p class="subtle">名称・順番を変更できます。改名すると既存カードにも反映されます。</p><div class="stack">${state.statuses.map(s=>`<div class="editable-row"><input type="text" class="label-rename" data-kind="status" data-original="${attr(s)}" value="${attr(s)}" title="Enterまたはフォーカスを外すと改名"/><span class="subtle">${counts[s]}件</span><button class="icon-btn tiny" data-act="status-up" data-value="${attr(s)}">↑</button><button class="icon-btn tiny" data-act="status-down" data-value="${attr(s)}">↓</button><button class="btn small danger" data-act="remove-status" data-value="${attr(s)}" ${counts[s]?'disabled title="使用中のため削除できません"':''}>削除</button></div>`).join('')}</div><div class="tinyline"></div><div class="field"><label>新しいステータス</label><div style="display:flex;gap:7px"><input id="modal-new-status" type="text" placeholder="例：確認待ち、再検討、保留"/><button class="btn primary nowrap" data-act="add-status">＋ 追加</button></div></div>`;
+ footer=`<button class="btn" data-act="close-modal">完了</button>`;
+ }else if(m.type==='workspace-settings'){
+ title='ワークスペース設定';const w=state.workspace;
+ content=`<div class="field"><label>ワークスペース名</label><input type="text" id="ws-name" value="${attr(w.name)}" /></div><div class="field"><label>ワークスペースの説明</label><textarea id="ws-description" rows="2">${esc(w.description)}</textarea></div><div class="field-row"><div class="field"><label>推論順序の名前</label><input id="ws-reason" type="text" value="${attr(w.reasonLabel)}" /></div><div class="field"><label>論文提示順序の名前</label><input id="ws-paper" type="text" value="${attr(w.paperLabel)}" /></div></div><div class="field-row"><div class="field"><label>アクセントカラー</label><input type="color" id="ws-accent" value="${safeColor(w.accent)}" /></div><div class="field"><label>カードの密度</label><select id="ws-density"><option value="compact" ${w.density==='compact'?'selected':''}>コンパクト</option><option value="normal" ${w.density==='normal'?'selected':''}>標準</option><option value="comfortable" ${w.density==='comfortable'?'selected':''}>ゆったり</option></select></div></div><label class="check"><input type="checkbox" id="ws-preview" ${w.showPreview?'checked':''}> カード本文のプレビューを表示</label><div style="height:8px"></div><label class="check"><input type="checkbox" id="ws-meta" ${w.showMeta?'checked':''}> カードのタグを一覧表示</label><div class="tinyline"></div><p class="subtle">集計に使うステータスを設定できます。名称は「ステータス管理」から変更します。</p><div class="field-row"><div class="field"><label>未着手の判定</label><select id="ws-todo">${state.statuses.map(s=>`<option value="${attr(s)}" ${s===state.todoStatus?'selected':''}>${esc(s)}</option>`).join('')}</select></div><div class="field"><label>完了の判定</label><select id="ws-done">${state.statuses.map(s=>`<option value="${attr(s)}" ${s===state.doneStatus?'selected':''}>${esc(s)}</option>`).join('')}</select></div></div><div class="field"><label>除外（Cut）の判定</label><select id="ws-cut">${state.statuses.map(s=>`<option value="${attr(s)}" ${s===state.cutStatus?'selected':''}>${esc(s)}</option>`).join('')}</select></div><p class="field-help">変更は既存論文・カードを削除しません。</p>`;
+ footer=`<button class="btn" data-act="statuses">ステータス管理</button><button class="btn" data-act="close-modal">キャンセル</button><button class="btn primary" data-act="save-workspace">設定を保存</button>`;
+ }else if(m.type==='transfer-card'){
+ const c=selected();title=m.mode==='move'?'カードを他の論文へ移動':'カードを他の論文へ複製';
+ content=`<p class="subtle">${esc(c?.code||'')} · ${esc(c?.title||'')}</p><div class="field"><label>移動・複製先の論文</label><select id="modal-target-paper">${state.papers.filter(p=>p.id!==paper()?.id).map(p=>`<option value="${attr(p.id)}">${esc(p.title)}</option>`).join('')}</select></div><div class="hint">他論文への依存関係は維持されます。移動・複製先では、新しい表示IDが割り当てられます。</div>`;
+ footer=`<button class="btn" data-act="close-modal">キャンセル</button><button class="btn primary" data-act="apply-transfer">${m.mode==='move'?'移動する':'複製する'}</button>`;
+ }else if(m.type==='backup'){
+ title='バックアップ・復元';content=`<div class="stack"><div class="hint">変更はまずこのブラウザに自動保存されます。クラウド同期の有効時は、ログインした他端末にも反映されます。JSONは独立したバックアップとして引き続き保存してください。</div><button class="btn primary" data-act="export-json">⇩ 全論文をJSONで保存</button><button class="btn" data-act="file-import">⇧ JSONファイルを読み込む</button></div><div class="tinyline"></div><div class="field"><label>またはJSONを貼り付けて復元</label><textarea id="modal-json" rows="5" placeholder="JSONデータを貼り付け"></textarea></div><div class="field"><label>読み込み方式</label><select id="modal-import-mode"><option value="merge">既存データに論文を追加（推奨）</option><option value="replace">すべて置き換える</option></select></div><p class="field-help">旧版Cutting Board StudioのJSON、ChatGPTの旧Cutting Boardの単一論文JSONにも対応します。旧版の保存内容は自動では引き継がれません。</p>`;
+ footer=`<button class="btn" data-act="close-modal">閉じる</button><button class="btn primary" data-act="import-pasted">JSONを読み込む</button>`;
+ }else if(m.type==='confirm'){
+ title=m.title;content=`<p>${esc(m.message)}</p><div class="warning">この操作は元に戻せません。必要なら先にJSONバックアップを保存してください。</div>`;
+ footer=`<button class="btn" data-act="close-modal">キャンセル</button><button class="btn danger" data-act="confirm-danger">${esc(m.button||'削除する')}</button>`;
+ }
+ root.innerHTML=`<div class="modal-wrap" id="modal-backdrop"><div class="modal" role="dialog" aria-modal="true" aria-label="${attr(title)}"><div class="modal-head"><div><div class="eyebrow">Cutting Board Studio</div><h2>${esc(title)}</h2></div><button class="icon-btn" data-act="close-modal" aria-label="閉じる">×</button></div>${content}<div class="modal-footer">${footer}</div></div></div>`;
+}
+function newCard(){let p=paper();if(!p){p=blankPaper('新しい論文');state.papers.push(p);state.activePaperId=p.id;}
+ const code='C'+String(p.nextCode++).padStart(2,'0');const c={id:uuid(),code,title:'',body:'',notes:'',source:'',tags:[],fields:[],type:state.types[0],status:state.todoStatus,deps:[],createdAt:now(),updatedAt:now()};p.cards.push(c);p.reasonOrder.push(c.id);p.paperOrder.push(c.id);touch(p);ui.selectedCardId=c.id;ui.section='paper';ui.search='';ui.showCut=true;ui.typeFilter='all';ui.statusFilter='all';persist();render();$('#editor-title')?.focus();}
+function reorder(id,d){const p=paper();const a=ui.view==='reason'?p.reasonOrder:p.paperOrder;const i=a.indexOf(id),to=i+d;if(i<0||to<0||to>=a.length)return;[a[i],a[to]]=[a[to],a[i]];touch(p);persist();render();}
+function dropReorder(dragId,targetId){if(!dragId||dragId===targetId)return;const p=paper(),a=ui.view==='reason'?p.reasonOrder:p.paperOrder;const i=a.indexOf(dragId),j=a.indexOf(targetId);if(i<0||j<0)return;a.splice(i,1);a.splice(j,0,dragId);touch(p);persist();render();}
+function removeCard(id){const p=paper();if(!p||!p.cards.some(c=>c.id===id))return;p.cards=p.cards.filter(c=>c.id!==id);p.reasonOrder=p.reasonOrder.filter(x=>x!==id);p.paperOrder=p.paperOrder.filter(x=>x!==id);for(const pp of state.papers)for(const c of pp.cards)c.deps=c.deps.filter(x=>x!==id);ui.selectedCardId=p.cards[0]?.id||null;touch(p);persist();closeModal();render();toast('カードを削除しました。');}
+function removePaper(id){state.papers=state.papers.filter(p=>p.id!==id);const remaining=new Set(allCards().map(x=>x.card.id));state.papers.forEach(p=>p.cards.forEach(c=>c.deps=c.deps.filter(d=>remaining.has(d))));state.activePaperId=state.papers[0]?.id||null;ui.selectedCardId=null;ui.section='overview';persist();closeModal();render();toast('論文を削除しました。');}
+function cardCode(p){return 'C'+String(p.nextCode++).padStart(2,'0');}
+function transferCard(mode,targetId){const source=paper(),c=selected(),target=state.papers.find(p=>p.id===targetId);if(!c||!target||source.id===targetId)return;
+ const nid=mode==='copy'?uuid():c.id;
+ const nc={...c,id:nid,code:cardCode(target),deps:[...c.deps],tags:[...c.tags],fields:fieldList(c.fields),createdAt:mode==='copy'?now():c.createdAt,updatedAt:now()};
+ if(mode==='move'){source.cards=source.cards.filter(x=>x.id!==c.id);source.reasonOrder=source.reasonOrder.filter(x=>x!==c.id);source.paperOrder=source.paperOrder.filter(x=>x!==c.id);touch(source);}
+ target.cards.push(nc);target.reasonOrder.push(nid);target.paperOrder.push(nid);touch(target);state.activePaperId=target.id;ui.selectedCardId=nid;ui.search='';ui.typeFilter='all';ui.statusFilter='all';ui.showCut=true;ui.depSearch='';persist();closeModal();render();toast(mode==='move'?'カードを移動しました。':'カードを複製しました。');
+}
+function duplicatePaper(){const p=paper();if(!p)return;const copy=blankPaper(p.title+'（コピー）',p.subtitle),map=new Map();copy.nextCode=p.nextCode;copy.notes=p.notes;copy.phase=p.phase;copy.color=p.color;copy.tags=[...p.tags];copy.fields=fieldList(p.fields);copy.cards=p.cards.map(c=>{const id=uuid();map.set(c.id,id);return {...c,id,deps:[...c.deps],tags:[...c.tags],fields:fieldList(c.fields),createdAt:now(),updatedAt:now()};});copy.cards.forEach(c=>c.deps=c.deps.map(d=>map.get(d)||d));copy.reasonOrder=p.reasonOrder.map(d=>map.get(d));copy.paperOrder=p.paperOrder.map(d=>map.get(d));state.papers.push(copy);state.activePaperId=copy.id;ui.selectedCardId=copy.cards[0]?.id||null;persist();closeModal();render();toast('論文を複製しました。');}
+function exportJSON(){const blob=new Blob([JSON.stringify(state,null,2)],{type:'application/json;charset=utf-8'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='CuttingBoard_workspace_'+new Date().toISOString().slice(0,10)+'.json';document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);toast('全論文のJSONを保存しました。');}
+function legacyToWorkspace(obj){
+ if(!obj||!Array.isArray(obj.cards)||!Array.isArray(obj.reasoningOrder)||!Array.isArray(obj.paperSequence))throw Error('対応するCutting Board JSONではありません。');
+ const p=blankPaper(String(obj.project||'Imported Paper'),String(obj.title||''));const ids=new Map();let n=0;
+ for(const c of obj.cards){if(!c||typeof c.id!=='string'||ids.has(c.id))throw Error('旧形式のカードIDが不正です。');ids.set(c.id,uuid());}
+ p.cards=obj.cards.map(c=>{const code=/^C\d+$/.test(c.id)?c.id:'C'+String(n).padStart(2,'0');n++;return {id:ids.get(c.id),code,title:String(c.title||''),body:String(c.claim||''),type:String(c.role||'主張'),status:typeof c.status==='string'?c.status:'未解決',notes:'',source:'',tags:[],fields:[],deps:String(c.deps||'').split(/[,，、\s]+/).map(s=>ids.get(s)).filter(Boolean),createdAt:now(),updatedAt:now()};});
+ p.nextCode=Math.max(0,...p.cards.map(c=>Number(c.code.slice(1))+1));
+ p.reasonOrder=obj.reasoningOrder.map(c=>ids.get(c));p.paperOrder=obj.paperSequence.map(c=>ids.get(c));
+ const types=[...new Set([...(Array.isArray(obj.types)?obj.types:BASE_TYPES),...p.cards.map(c=>c.type)])];
+ return normalize({papers:[p],types,activePaperId:p.id});
+}
+function importJSON(raw,mode){
+ let d;try{d=JSON.parse(raw);}catch(e){toast('JSONとして読み込めませんでした。');return;}
+ try{const imported=Array.isArray(d.papers)?normalize(d):legacyToWorkspace(d);
+   if(mode==='replace'){
+     if(!confirm('現在の全論文を置き換えます。実行してよろしいですか？'))return;
+     state=imported;
+   }else{
+     const paperMap=new Map(),cardMap=new Map();
+     imported.papers.forEach(p=>{paperMap.set(p.id,uuid());p.cards.forEach(c=>cardMap.set(c.id,uuid()));});
+     const copies=imported.papers.map(p=>({...p,id:paperMap.get(p.id),title:state.papers.some(x=>x.title===p.title)?p.title+'（取込）':p.title,cards:p.cards.map(c=>({...c,id:cardMap.get(c.id),deps:c.deps.map(d=>cardMap.get(d)).filter(Boolean)})),reasonOrder:p.reasonOrder.map(d=>cardMap.get(d)),paperOrder:p.paperOrder.map(d=>cardMap.get(d))}));
+     state.papers.push(...copies);state.types=[...new Set([...state.types,...imported.types])];state.statuses=[...new Set([...state.statuses,...imported.statuses])];state.typeColors={...imported.typeColors,...state.typeColors};state.activePaperId=copies[0]?.id||state.activePaperId;
+   }
+   ui.selectedCardId=null;ui.section=state.papers.length?'paper':'overview';ui.search='';ui.globalSearch='';ui.typeFilter='all';ui.statusFilter='all';ensureSelection();persist();closeModal();render();toast(mode==='replace'?'バックアップを復元しました。':'論文を追加インポートしました。');
+ }catch(e){toast('インポート失敗：'+String(e.message||e));}
+}
+function keepFocusRender(){const el=document.activeElement,id=el?.id,start=(()=>{try{return el.selectionStart;}catch(e){return null;}})(),end=(()=>{try{return el.selectionEnd;}catch(e){return null;}})();render();const next=id?document.getElementById(id):null;if(next){next.focus();if(start!=null)try{next.setSelectionRange(start,end);}catch(e){}}}
+function handleClick(event){
+ if(event.target.id==='modal-backdrop'){closeModal();return;}
+ const node=event.target.closest('[data-act]');if(node){const act=node.dataset.act,id=node.dataset.id;
+  if(act==='overview'){ui.section='overview';render();}
+  else if(act==='switch-paper')switchPaper(id);
+  else if(act==='set-view'){ui.view=node.dataset.view;render();}
+  else if(act==='paper-up'||act==='paper-down'){reorderPaper(id,act==='paper-up'?-1:1);}
+  else if(act==='move-up')reorder(id,-1);
+  else if(act==='move-down')reorder(id,1);
+  else if(act==='new-card')newCard();
+  else if(act==='new-paper')openModal('new-paper');
+  else if(act==='paper-settings')openModal('paper-settings');
+  else if(act==='types')openModal('types');
+  else if(act==='statuses')openModal('statuses');
+  else if(act==='workspace-settings')openModal('workspace-settings');
+  else if(act==='backup')openModal('backup');
+  else if(act==='close-modal')closeModal();
+  else if(act==='create-paper'){
+    const t=$('#modal-paper-title')?.value.trim(),s=$('#modal-paper-subtitle')?.value.trim();if(!t){toast('論文名を入力してください。');return;}
+    const p=blankPaper(t,s||'');state.papers.push(p);state.activePaperId=p.id;ui.selectedCardId=null;ui.section='paper';persist();closeModal();render();toast('新しい論文を作成しました。');
+  }
+  else if(act==='save-paper-settings'){
+    const t=$('#modal-paper-title')?.value.trim(),s=$('#modal-paper-subtitle')?.value.trim();if(!t){toast('論文名を入力してください。');return;}const p=paper();p.title=t;p.subtitle=s||'';p.phase=$('#modal-paper-phase')?.value.trim()||'';p.notes=$('#modal-paper-notes')?.value||'';p.tags=tagList($('#modal-paper-tags')?.value||'');p.color=safeColor($('#modal-paper-color')?.value);p.fields=fieldList(ui.modal.paperFields);touch(p);persist();closeModal();render();toast('論文名と概要を更新しました。');
+  }
+  else if(act==='duplicate-paper')duplicatePaper();
+  else if(act==='delete-paper')openModal('confirm',{title:'論文を削除',message:'「'+paper().title+'」と、その全カードを完全に削除します。他論文からの参照も解除されます。',button:'論文を削除',operation:'delete-paper',id:paper().id});
+  else if(act==='delete-card')openModal('confirm',{title:'カードを削除',message:'「'+selected().title+'」を削除します。他カードからの依存関係も解除されます。',button:'カードを削除',operation:'delete-card',id:selected().id});
+  else if(act==='confirm-danger'){const m=ui.modal;if(m.operation==='delete-card')removeCard(m.id);else if(m.operation==='delete-paper')removePaper(m.id);}
+  else if(act==='add-type'){
+    const input=$('#modal-new-type'),t=input?.value.trim();if(!t){toast('種類名を入力してください。');return;}
+    if(state.types.some(x=>x.toLowerCase()===t.toLowerCase())){toast('同名の種類が存在します。');return;}
+    state.types.push(t);persist();renderModal();$('#modal-new-type')?.focus();toast('新しい種類を追加しました。');
+  }
+  else if(act==='save-workspace'){
+    const w=state.workspace;w.name=$('#ws-name')?.value.trim()||'Cutting Board';w.description=$('#ws-description')?.value||'';w.reasonLabel=$('#ws-reason')?.value.trim()||'Reasoning Order';w.paperLabel=$('#ws-paper')?.value.trim()||'Paper Sequence';w.accent=safeColor($('#ws-accent')?.value);w.density=$('#ws-density')?.value||'normal';w.showPreview=$('#ws-preview')?.checked!==false;w.showMeta=$('#ws-meta')?.checked!==false;state.todoStatus=$('#ws-todo')?.value||state.statuses[0];state.doneStatus=$('#ws-done')?.value||state.statuses[0];state.cutStatus=$('#ws-cut')?.value||state.statuses[0];persist();closeModal();render();toast('ワークスペースを更新しました。');
+  }
+  else if(act==='type-up'||act==='type-down')moveLabel('type',node.dataset.type,act==='type-up'?-1:1);
+  else if(act==='status-up'||act==='status-down')moveLabel('status',node.dataset.value,act==='status-up'?-1:1);
+  else if(act==='add-status'){
+    const s=$('#modal-new-status')?.value.trim();if(!s){toast('名前を入力してください。');return;}
+    if(state.statuses.some(x=>x.toLowerCase()===s.toLowerCase())){toast('同名のステータスがあります。');return;}
+    state.statuses.push(s);persist();renderModal();$('#modal-new-status')?.focus();toast('ステータスを追加しました。');
+  }
+  else if(act==='remove-status'){
+    const s=node.dataset.value;if(allCards().some(x=>x.card.status===s)){toast('使用中のステータスは削除できません。');return;}
+    if(state.statuses.length<2){toast('最低1つ必要です。');return;}
+    const next=state.statuses.find(x=>x!==s);state.statuses=state.statuses.filter(x=>x!==s);
+    if(state.todoStatus===s)state.todoStatus=next;if(state.doneStatus===s)state.doneStatus=next;if(state.cutStatus===s)state.cutStatus=next;
+    persist();renderModal();
+  }
+  else if(act==='add-custom-field'){
+    const isPaper=node.dataset.scope==='paper',target=isPaper?ui.modal:selected();if(!target)return;
+    const list=isPaper?target.paperFields:target.fields;list.push({id:uuid(),key:'',value:''});
+    if(isPaper)refreshPaperFields();else{touch(paper(),target);persist();renderEditor();}
+  }
+  else if(act==='remove-custom-field'){
+    const isPaper=node.dataset.scope==='paper',target=isPaper?ui.modal:selected();if(!target)return;
+    if(isPaper){target.paperFields=target.paperFields.filter(f=>f.id!==node.dataset.fieldId);refreshPaperFields();}
+    else{target.fields=target.fields.filter(f=>f.id!==node.dataset.fieldId);touch(paper(),target);persist();renderEditor();}
+  }
+  else if(act==='remove-type'){
+    const t=node.dataset.type;if(allCards().some(x=>x.card.type===t)){toast('使用中の種類は削除できません。');return;}
+    if(state.types.length<=1){toast('最低1種類は必要です。');return;}state.types=state.types.filter(x=>x!==t);delete state.typeColors[t];persist();renderModal();
+  }
+  else if(act==='add-dep'){
+    const c=selected();if(!c||c.id===id||c.deps.includes(id)||!cardRef(id))return;c.deps.push(id);touch(paper(),c);ui.depSearch='';persist();renderEditor();
+  }
+  else if(act==='remove-dep'){
+    const c=selected();if(!c)return;c.deps=c.deps.filter(d=>d!==id);touch(paper(),c);persist();renderEditor();
+  }
+  else if(act==='visit-dep'||act==='visit-card'){
+    const ref=cardRef(id);if(ref)switchPaper(ref.paper.id,ref.card.id);
+  }
+  else if(act==='transfer-card'){
+    if(state.papers.length<2){toast('移動・複製先の論文を先に作成してください。');return;}
+    openModal('transfer-card',{mode:node.dataset.mode});
+  }
+  else if(act==='apply-transfer')transferCard(ui.modal.mode,$('#modal-target-paper')?.value);
+  else if(act==='export-json')exportJSON();
+  else if(act==='file-import'){$('#file-input').click();}
+  else if(act==='import-pasted'){
+    const raw=$('#modal-json')?.value.trim();if(!raw){toast('JSONを貼り付けてください。');return;}importJSON(raw,$('#modal-import-mode')?.value||'merge');
+  }
+  return;
+ }
+ const item=event.target.closest('[data-card-id]');if(item){ui.selectedCardId=item.dataset.cardId;ui.depSearch='';renderBoard();}
+}
+function handleInput(event){const id=event.target.id;
+ if(['editor-title','editor-body','editor-notes','editor-source','editor-tags'].includes(id)){
+   const c=selected(),p=paper();if(!c)return;const key={'editor-title':'title','editor-body':'body','editor-notes':'notes','editor-source':'source','editor-tags':'tags'}[id];c[key]=key==='tags'?tagList(event.target.value):event.target.value;touch(p,c);persist();
+ }else if(event.target.matches('.custom-value, .custom-key')){
+   const isPaper=event.target.dataset.scope==='paper';const owner=isPaper?ui.modal:selected();const f=(isPaper?owner?.paperFields:owner?.fields)?.find(f=>f.id===event.target.dataset.fieldId);if(!f)return;f[event.target.classList.contains('custom-key')?'key':'value']=event.target.value;if(!isPaper){touch(paper(),owner);persist();}
+ }else if(id==='card-search'){ui.search=event.target.value;keepFocusRender();}
+ else if(id==='global-search'){ui.globalSearch=event.target.value;keepFocusRender();}
+ else if(id==='dep-search'){ui.depSearch=event.target.value;keepFocusRender();}
+}
+function handleChange(event){const id=event.target.id;
+ if(id==='editor-code'){
+   const c=selected(),p=paper(),value=event.target.value.trim();if(!c)return;
+   if(!value||p.cards.some(x=>x.id!==c.id&&x.code===value)){toast('表示IDが空か、同じ論文に重複しています。');event.target.value=c.code;return;}
+   c.code=value;const m=/^C(\d+)$/.exec(value);if(m)p.nextCode=Math.max(p.nextCode,Number(m[1])+1);touch(p,c);persist();renderBoard();
+ }else if(event.target.matches('.label-rename')){
+   const old=event.target.dataset.original;const kind=event.target.dataset.kind;const value=event.target.value.trim();
+   if(!renameLabel(kind,old,value))event.target.value=old;
+ }else if(event.target.matches('.type-color')){
+   state.typeColors[event.target.dataset.type]=safeColor(event.target.value);persist();renderModal();
+ }else if(id==='editor-type'||id==='editor-status'){
+   const c=selected();if(!c)return;c[id==='editor-type'?'type':'status']=event.target.value;touch(paper(),c);persist();renderBoard();
+ }else if(id==='filter-type'){ui.typeFilter=event.target.value;renderBoard();}
+ else if(id==='filter-status'){ui.statusFilter=event.target.value;renderBoard();}
+ else if(id==='show-cut'){ui.showCut=event.target.checked;renderBoard();}
+}
+let dragged=null;
+document.addEventListener('click',handleClick);
+document.addEventListener('input',handleInput);
+document.addEventListener('change',handleChange);
+document.addEventListener('focusout',e=>{if(e.target.matches('.label-rename')){const old=e.target.dataset.original;if(old!==e.target.value.trim())renameLabel(e.target.dataset.kind,old,e.target.value.trim());return;}if(['editor-title','editor-body','editor-notes','editor-source','editor-tags'].includes(e.target.id)&&!ui.modal){const c=selected();if(!c)return;const item=document.querySelector(`.card-item[data-card-id="${CSS.escape(c.id)}"]`);if(item){const title=item.querySelector('.card-title');if(title)title.textContent=c.title||'無題のカード';const preview=item.querySelector('.card-preview');if(preview)preview.textContent=c.body;}}});
+document.addEventListener('keydown',e=>{
+ if(e.key==='Escape'&&ui.modal){closeModal();return;}
+ if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='k'){e.preventDefault();ui.section==='overview'?$('#global-search')?.focus():$('#card-search')?.focus();}
+ if((e.key==='Enter'||e.key===' ')&&e.target.matches('.card-item')&&!e.target.closest('button')){e.preventDefault();ui.selectedCardId=e.target.dataset.cardId;ui.depSearch='';renderBoard();}
+ if(e.key==='Enter'&&e.target.id==='modal-new-type'){e.preventDefault();$('[data-act="add-type"]')?.click();}
+ if(e.key==='Enter'&&e.target.id==='modal-new-status'){e.preventDefault();$('[data-act="add-status"]')?.click();}
+ if(e.key==='Enter'&&e.target.matches('.label-rename')){e.preventDefault();e.target.blur();}
+});
+document.addEventListener('dragstart',e=>{
+ const item=e.target.closest('.card-item');if(!item||item.draggable!==true)return;dragged=item.dataset.cardId;e.dataTransfer.effectAllowed='move';e.dataTransfer.setData('text/plain',dragged);
+});
+document.addEventListener('dragover',e=>{if(!dragged)return;const item=e.target.closest('.card-item');if(item&&item.dataset.cardId!==dragged){e.preventDefault();document.querySelectorAll('.card-item.drag-over').forEach(el=>el.classList.remove('drag-over'));item.classList.add('drag-over');}});
+document.addEventListener('drop',e=>{const item=e.target.closest('.card-item');if(item&&dragged){e.preventDefault();dropReorder(dragged,item.dataset.cardId);}dragged=null;document.querySelectorAll('.card-item.drag-over').forEach(el=>el.classList.remove('drag-over'));});
+document.addEventListener('dragend',()=>{dragged=null;document.querySelectorAll('.card-item.drag-over').forEach(el=>el.classList.remove('drag-over'));});
+$('#file-input').addEventListener('change',async e=>{const file=e.target.files?.[0];if(!file)return;try{const raw=await file.text();const mode=$('#modal-import-mode')?.value||'merge';importJSON(raw,mode);}catch(err){toast('ファイルを読み込めませんでした。');}e.target.value='';});
+
+/* --- Optional multi-device cloud synchronization ------------------------
+   Local data stays usable without the cloud. Supabase credentials here are
+   public project URL + publishable/anon key ONLY. No service_role/secret keys.
+   The database function performs optimistic concurrency checks, so edits
+   made on different devices are never silently overwritten.
+--------------------------------------------------------------------------- */
+function workspaceFingerprint(s){
+  // A stable string for the local snapshot, intentionally excluding the
+  // workspace-level timestamp. Content, ordering and card metadata matter.
+  return JSON.stringify({...s,updatedAt:null});
+}
+function readSyncMeta(){try{return JSON.parse(localStorage.getItem(SYNC_KEY)||'null');}catch(_){return null;}}
+function storeSyncMeta(){
+ try{localStorage.setItem(SYNC_KEY,JSON.stringify({userId:cloud.user?.id||null,fingerprint:cloud.lastSyncedFingerprint,revision:cloud.revision}));}catch(_){/*local storage disabled*/}
+}
+function stateHasContent(s){
+ return s.papers.some(p=>p.cards.length||p.title!=='無題の論文'||p.subtitle||p.notes||p.tags?.length||p.fields?.length)||s.papers.length>1;
+}
+function cloudStatus(){
+ if(cloud.conflict)return {label:'⚠ 同期の競合',cls:'conflict'};
+ if(!cloud.config)return {label:'☁ 同期を設定',cls:''};
+ if(!cloud.client)return {label:'⚠ クラウドライブラリ未接続',cls:'warning'};
+ if(!cloud.user)return {label:'☁ ログインが必要',cls:'warning'};
+ if(cloud.saveFailure)return {label:'⚠ 同期失敗・変更を保管中',cls:'warning'};
+ if(!navigator.onLine && cloud.dirty)return {label:'◷ オフライン・未同期',cls:'warning'};
+ if(!cloud.ready)return {label:'◷ 読み込み中',cls:'warning'};
+ if(cloud.saving)return {label:'↑ クラウドへ保存中',cls:'warning'};
+ if(cloud.dirty)return {label:'◷ クラウド保存待ち',cls:'warning'};
+ return {label:'✓ クラウド同期済み',cls:'ready'};
+}
+function updateCloudIndicator(){
+ const b=$('#cloud-status-button');if(!b)return;
+ const v=cloudStatus();b.textContent=v.label;b.classList.remove('ready','warning','conflict');if(v.cls)b.classList.add(v.cls);
+ const s=$('#storage-state');if(s && cloud.user)s.textContent=saveHealthy?'● ローカル保存済み · '+v.label:'⚠ ローカル保存不可 · '+v.label;
+}
+function showCloudPanel(){cloud.modal=true;renderCloudPanel();}
+function closeCloudPanel(){cloud.modal=false;$('#cloud-root').innerHTML='';}
+function renderCloudPanel(){
+ const root=$('#cloud-root');if(!cloud.modal){root.innerHTML='';return;}
+ const st=cloudStatus();const configured=!!cloud.config;
+ const hasLogin=!!cloud.user;
+ const hostOk=location.protocol==='https:'||location.hostname==='localhost'||location.hostname==='127.0.0.1';
+ root.innerHTML=`<div class="cloud-overlay" data-cloud-overlay="1"><section class="cloud-dialog" role="dialog" aria-modal="true" aria-label="クラウド同期の設定">
+ <div class="cloud-head"><div><div class="eyebrow">SYNC · CROSS DEVICE</div><h2>クラウド同期</h2><p class="help">複数端末で同じワークスペースを使います。ログインするすべての端末で同じSupabaseプロジェクトとメールアドレスを指定してください。</p></div><button class="icon-btn" data-cloud-act="close" aria-label="閉じる">×</button></div>
+ <div class="cloud-bar ${cloud.conflict?'cloud-critical':cloud.saveFailure?'cloud-alert':''}">${esc(st.label)}${cloud.user?' · '+esc(cloud.user.email||'ログイン中'):''}${cloud.revision!==null?' · Revision '+esc(cloud.revision):''}</div>
+ ${cloud.saveFailure&&cloud.message?`<div class="cloud-bar cloud-alert">同期エラー: ${esc(cloud.message)}</div>`:''}
+ ${!hostOk?'<div class="cloud-bar cloud-alert"><strong>注意：</strong>ファイル（file://）からのクラウド認証には対応していません。GitHub Pages等のHTTPSサイトにアップロードしてアクセスしてください。ローカル編集とJSON保存は引き続き可能です。</div>':''}
+ ${cloud.conflict?`<div class="cloud-bar cloud-critical"><strong>他の端末と編集が衝突しました。</strong> この端末の内容は残っています。JSONを保存してから、どちらを残すか選択してください。クラウド版を読む場合、この端末の未同期変更は失われます。</div><div class="row-actions"><button class="btn" data-cloud-act="export">⇩ 先にJSONを保存</button><button class="btn" data-cloud-act="use-remote">クラウド版を読み込む</button><button class="btn danger" data-cloud-act="force-local">この端末の内容で上書き</button></div>`:''}
+ ${configured?`<h3>アカウント</h3><p class="help">接続先: ${esc(cloud.config.url)}</p>${hasLogin?`<p class="help">ログイン中: <strong>${esc(cloud.user.email||cloud.user.id)}</strong></p><div class="row-actions"><button class="btn" data-cloud-act="refresh">↓ 今すぐ同期を確認</button><button class="btn" data-cloud-act="signout">ログアウト</button></div>`:`<label for="cloud-email">メールアドレス</label><input type="email" id="cloud-email" placeholder="name@example.com" autocomplete="email"><div class="row-actions"><button class="btn primary" data-cloud-act="login" ${!hostOk?'disabled':''}>ログイン用メールを送信</button></div><p class="cloud-mini">メールで届くリンクを、このアプリを使うFirefoxで開いてください。認証メールの送信はSupabase側の設定・制限に従います。</p>`}`:
+ `<h3>Supabaseプロジェクトの接続設定</h3><label for="cloud-url">Project URL</label><input type="url" id="cloud-url" placeholder="https://xxxxx.supabase.co" value="${attr(cloud.config?.url||'')}"><label for="cloud-key">Publishable key（公開用キー）</label><input type="text" id="cloud-key" placeholder="sb_publishable_... または legacy anon key" value="${attr(cloud.config?.key||'')}"><p class="cloud-mini">秘密の service_role / sb_secret_ キーを絶対に入力しないでください。RLSを有効化したデータベースが必要です。</p><div class="row-actions"><button class="btn primary" data-cloud-act="save-config">設定を保存して接続</button></div>`}
+ ${configured?`<h3>接続設定</h3><div class="row-actions"><button class="btn small" data-cloud-act="edit-config">別のSupabaseプロジェクトに変更</button><button class="btn small" data-cloud-act="export">JSONを保存</button></div>`:''}
+ <div class="cloud-bar"><strong>保存方針：</strong> 変更はまずブラウザ内に保存し、接続時にクラウドへ送信します。別端末の更新は再表示・復帰時または定期チェックで取得します。同時編集の差分自動マージは行わず、競合時に確認します。</div>
+ <div class="row-actions"><button class="btn" data-cloud-act="close">閉じる</button></div>
+ </section></div>`;
+}
+function validateCloudKey(key){
+ if(!key||key.startsWith('sb_secret_'))return false;
+ if(key.startsWith('sb_publishable_'))return true;
+ if(key.split('.').length===3){try{const payload=JSON.parse(atob(key.split('.')[1].replace(/-/g,'+').replace(/_/g,'/')));return payload.role==='anon';}catch(_){return false;}}
+ return false;
+}
+function queueCloudSave(){clearTimeout(cloud.timer);cloud.timer=setTimeout(()=>{void saveCloud();},1200);updateCloudIndicator();}
+function writeRemoteToLocal(obj,revision){
+ let normalized;
+ try{normalized=normalize(obj);}catch(e){throw new Error('クラウドのデータ形式を読み込めません: '+String(e.message||e));}
+ state=normalized;cloud.revision=revision;cloud.lastSyncedFingerprint=workspaceFingerprint(state);cloud.dirty=false;cloud.conflict=null;cloud.saveFailure=false;storeSyncMeta();
+ try{localStorage.setItem(KEY,JSON.stringify(state));saveHealthy=true;}catch(_){saveHealthy=false;}
+ ui.selectedCardId=null;ui.section=paper()?'paper':'overview';ui.search='';ui.globalSearch='';ui.depSearch='';ui.typeFilter='all';ui.statusFilter='all';ensureSelection();applyAppearance();render();
+}
+function useRemoteConflict(){
+ if(!cloud.conflict)return;
+ try{writeRemoteToLocal(cloud.conflict.doc,cloud.conflict.revision);renderCloudPanel();toast('クラウドのデータを読み込みました。');}
+ catch(e){toast(String(e.message||e));}
+}
+async function forceLocalConflict(){
+ if(!cloud.conflict)return;
+ if(!confirm('この端末のワークスペース全体でクラウド版を上書きします。ほかの端末での変更が失われる可能性があります。続けますか？'))return;
+ cloud.revision=cloud.conflict.revision;cloud.conflict=null;cloud.dirty=true;renderCloudPanel();await saveCloud();
+}
+async function fetchRemote(){
+ const {data,error}=await cloud.client.from('cutboard_workspaces').select('document,revision,updated_at').eq('user_id',cloud.user.id).maybeSingle();
+ if(error)throw error;
+ return data;
+}
+async function checkCloud(initial=false){
+ if(!cloud.client||!cloud.user||cloud.checking||cloud.saving||cloud.conflict)return;
+ const gen=cloud.generation;cloud.checking=true;
+ try{
+   const row=await fetchRemote();
+   if(gen!==cloud.generation||!cloud.user)return;
+   if(!row){
+     cloud.revision=0;cloud.ready=true;
+     cloud.dirty=true;
+     await saveCloud();
+     return;
+   }
+   const rev=Number(row.revision);
+   if(!Number.isSafeInteger(rev))throw Error('不正なサーバーの改訂番号');
+   const remote=normalize(row.document);
+   const fp=workspaceFingerprint(remote);
+   const local=workspaceFingerprint(state);
+   const meta=readSyncMeta();
+   const alreadySynced=meta?.userId===cloud.user.id&&meta?.fingerprint===local;
+   if(cloud.revision===rev && cloud.lastSyncedFingerprint===fp){
+     // Even when a save is pending, the DB has not changed.
+     return;
+   }
+   if(local===fp){
+     cloud.revision=rev;cloud.lastSyncedFingerprint=fp;cloud.dirty=false;cloud.ready=true;cloud.conflict=null;cloud.saveFailure=false;storeSyncMeta();
+   }else if(!cloud.dirty && (alreadySynced||!stateHasContent(state))){
+     writeRemoteToLocal(remote,rev);cloud.ready=true;
+     if(!initial)toast('他の端末からの更新を反映しました。');
+   }else{
+     cloud.conflict={doc:remote,revision:rev};cloud.ready=true;cloud.dirty=true;
+     toast('端末間で内容が異なります。クラウド同期画面で選択してください。');
+     showCloudPanel();
+   }
+ }catch(e){cloud.saveFailure=true;cloud.message=String(e.message||e);if(initial)toast('クラウド接続に失敗: '+cloud.message);}
+ finally{cloud.checking=false;updateCloudIndicator();if(cloud.modal)renderCloudPanel();}
+}
+async function saveCloud(){
+ if(!cloud.ready||!cloud.user||!cloud.client||cloud.conflict||cloud.saving||!cloud.dirty)return;
+ if(cloud.checking){queueCloudSave();return;}
+ if(!navigator.onLine){updateCloudIndicator();return;}
+ const gen=cloud.generation;
+ cloud.saving=true;cloud.saveFailure=false;updateCloudIndicator();
+ const snapshot=JSON.parse(JSON.stringify(state));const fp=workspaceFingerprint(snapshot);
+ try{
+   let revision;
+   if(cloud.revision===0){
+     const {data,error}=await cloud.client.from('cutboard_workspaces').insert({user_id:cloud.user.id,document:snapshot,revision:1}).select('revision').single();
+     if(error){if(error.code==='23505'){cloud.saving=false;await checkCloud(true);return;}throw error;}
+     revision=Number(data.revision);
+   }else{
+     const {data,error}=await cloud.client.rpc('cutboard_save',{p_expected_revision:cloud.revision,p_document:snapshot});
+     if(error)throw error;
+     if(data===null||data===undefined){
+       cloud.saving=false;await checkCloud(true);return;
+     }
+     revision=Number(data);
+   }
+   if(gen!==cloud.generation||!cloud.user)return;
+   if(!Number.isSafeInteger(revision)||revision<=0)throw Error('不正な保存確認');
+   cloud.revision=revision;cloud.lastSyncedFingerprint=fp;cloud.dirty=workspaceFingerprint(state)!==fp;cloud.saveFailure=false;storeSyncMeta();
+   if(cloud.dirty)queueCloudSave();
+ }catch(e){
+   if(gen===cloud.generation){cloud.saveFailure=true;cloud.message=String(e.message||e);cloud.dirty=true;toast('クラウドへの保存に失敗しました。ローカルには保存されています。');}
+ }finally{if(gen===cloud.generation){cloud.saving=false;updateCloudIndicator();if(cloud.modal)renderCloudPanel();}}
+}
+function subscribeCloud(){
+ if(cloud.channel){void cloud.client.removeChannel(cloud.channel);cloud.channel=null;}
+ if(!cloud.client||!cloud.user)return;
+ const id=cloud.user.id;
+ cloud.channel=cloud.client.channel('cutboard-workspace-'+id).on('postgres_changes',{
+   event:'*',schema:'public',table:'cutboard_workspaces',filter:'user_id=eq.'+id
+ },()=>{if(cloud.ready)void checkCloud();}).subscribe();
+}
+async function connectCloudAccount(user){
+ const changed=cloud.user?.id!==user.id;
+ cloud.user=user;
+ if(changed){cloud.ready=false;cloud.revision=null;cloud.conflict=null;cloud.lastSyncedFingerprint=null;cloud.dirty=false;cloud.generation++;}
+ updateCloudIndicator();
+ if(!changed&&cloud.ready)return;
+ await checkCloud(true);
+ if(cloud.user&&cloud.ready)subscribeCloud();
+ if(cloud.modal)renderCloudPanel();
+}
+async function configureCloud(config){
+ if(cloud.channel&&cloud.client){void cloud.client.removeChannel(cloud.channel);cloud.channel=null;}
+ if(cloud.client){try{await cloud.client.auth.signOut({scope:'local'});}catch(_){/* ignore */}}
+ cloud.generation++;cloud.user=null;cloud.ready=false;cloud.client=null;cloud.revision=null;cloud.dirty=false;cloud.conflict=null;cloud.lastSyncedFingerprint=null;
+ if(!window.supabase||typeof window.supabase.createClient!=='function')throw Error('Supabaseライブラリを読み込めません。ネット接続を確認してください。');
+ const client=window.supabase.createClient(config.url,config.key,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true},realtime:{params:{eventsPerSecond:5}}});
+ cloud.config=config;cloud.client=client;
+ client.auth.onAuthStateChange((_event,session)=>{
+    if(client!==cloud.client)return;
+    if(session?.user){queueMicrotask(()=>{if(client===cloud.client)void connectCloudAccount(session.user);});}
+    else{cloud.user=null;cloud.ready=false;cloud.dirty=false;cloud.conflict=null;cloud.revision=null;cloud.lastSyncedFingerprint=null;cloud.generation++;updateCloudIndicator();if(cloud.modal)renderCloudPanel();}
+ });
+ updateCloudIndicator();
+}
+async function bootCloud(){
+ try{const cfg=JSON.parse(localStorage.getItem(CLOUD_KEY)||'null');if(cfg?.url&&validateCloudKey(cfg.key)){await configureCloud(cfg);}}
+ catch(e){cloud.message=String(e.message||e);updateCloudIndicator();}
+ if(!cloud.interval)cloud.interval=setInterval(()=>{if(!document.hidden&&cloud.user){if(cloud.ready&&cloud.dirty&&!cloud.conflict)void saveCloud();else void checkCloud();}},15000);
+}
+window.addEventListener('online',()=>{if(cloud.user){if(cloud.ready&&cloud.dirty)void saveCloud();else void checkCloud();}});
+window.addEventListener('focus',()=>{if(cloud.user){if(cloud.ready&&cloud.dirty&&!cloud.conflict)void saveCloud();else void checkCloud();}});
+document.addEventListener('visibilitychange',()=>{if(!document.hidden&&cloud.user){if(cloud.ready&&cloud.dirty&&!cloud.conflict)void saveCloud();else void checkCloud();}});
+document.addEventListener('click',async e=>{
+ const el=e.target.closest('[data-cloud-act]');if(!el)return;
+ const act=el.dataset.cloudAct;
+ if(act==='open'){showCloudPanel();return;}
+ if(act==='close'){closeCloudPanel();return;}
+ if(act==='export'){exportJSON();return;}
+ if(act==='edit-config'){
+   if(!confirm('接続設定を変更します。いまの端末のデータは維持されます。未同期の変更は先にJSONで保存してください。'))return;
+   try{if(cloud.client)await cloud.client.auth.signOut({scope:'local'});}catch(_){/* ignore */}
+   cloud.generation++;cloud.client=null;cloud.config=null;cloud.user=null;cloud.ready=false;cloud.conflict=null;cloud.revision=null;cloud.dirty=false;cloud.lastSyncedFingerprint=null;
+   try{localStorage.removeItem(CLOUD_KEY);localStorage.removeItem(SYNC_KEY);}catch(_){/* ignore */}
+   renderCloudPanel();updateCloudIndicator();return;
+ }
+ if(act==='save-config'){
+   const url=$('#cloud-url')?.value.trim().replace(/\/$/,'');const key=$('#cloud-key')?.value.trim();
+   let urlObj;try{urlObj=new URL(url);}catch(_){toast('Project URLが不正です。');return;}
+   if(urlObj.protocol!=='https:'||urlObj.pathname!=='/'||urlObj.search||urlObj.hash){toast('HTTPSのProject URLを入力してください。');return;}
+   if(!validateCloudKey(key)){toast('公開用のPublishable keyかanon keyを指定してください。秘密鍵は使用できません。');return;}
+   try{await configureCloud({url,key});localStorage.setItem(CLOUD_KEY,JSON.stringify({url,key}));renderCloudPanel();toast('接続先を設定しました。メールでログインしてください。');}
+   catch(err){toast('接続できません: '+String(err.message||err));}
+   return;
+ }
+ if(act==='login'){
+   const email=$('#cloud-email')?.value.trim();if(!email||!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){toast('有効なメールアドレスを入力してください。');return;}
+   if(!cloud.client){toast('先に接続先を設定してください。');return;}
+   if(!(location.protocol==='https:'||['localhost','127.0.0.1'].includes(location.hostname))){toast('HTTPSで公開したURLからログインしてください。');return;}
+   try{const {error}=await cloud.client.auth.signInWithOtp({email,options:{emailRedirectTo:location.origin+location.pathname}});if(error)throw error;toast('ログイン用メールを送信しました。');}
+   catch(err){toast('メール送信に失敗: '+String(err.message||err));}
+   return;
+ }
+ if(act==='signout'){
+   if(cloud.dirty||cloud.conflict){if(!confirm('未同期の変更があります。先にJSONを保存することを推奨します。ログアウトしますか？'))return;}
+   try{const {error}=await cloud.client.auth.signOut();if(error)throw error;toast('ログアウトしました。');}
+   catch(err){toast('ログアウトできません: '+String(err.message||err));}
+   renderCloudPanel();return;
+ }
+ if(act==='refresh'){
+   if(cloud.dirty&&!cloud.conflict)await saveCloud();else await checkCloud();renderCloudPanel();return;
+ }
+ if(act==='use-remote'){useRemoteConflict();return;}
+ if(act==='force-local'){await forceLocalConflict();return;}
+});
+
+ensureSelection();applyAppearance();render();bootCloud();
+})();
+</script>
+</body>
+</html>
